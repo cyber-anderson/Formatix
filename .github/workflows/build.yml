@@ -12,30 +12,43 @@ permissions:
 jobs:
   build:
     runs-on: windows-latest
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: "3.10"
 
       - name: Install dependencies
         run: |
+          python -m pip install --upgrade pip
           pip install pyinstaller pillow tkinterdnd2
 
-      - name: Build with PyInstaller
+      - name: Build EXE
         run: |
           pyinstaller --noconsole --onefile --icon=icon.ico --add-data "icon.ico;." --collect-all tkinterdnd2 formatix.py
 
+      - name: Verify build output
+        run: dir dist
+
       - name: Rename executable
         shell: bash
-        run: mv dist/formatix.exe dist/formatix-${GITHUB_REF_NAME#v}.exe
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          mv dist/formatix.exe dist/formatix-${VERSION}.exe
 
-      - name: Upload Release Asset
+      - name: Verify renamed file
+        shell: bash
+        run: |
+          ls -la dist
+
+      - name: Create Release and Upload EXE
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/formatix-${GITHUB_REF_NAME#v}.exe
-          tag_name: ${{ github.ref_name }} # Указываем тег явно
+          files: dist/*.exe
+          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
