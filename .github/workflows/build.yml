@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch: # ЭТА СТРОКА ДОБАВИТ КНОПКУ "RUN WORKFLOW"
 
 permissions:
   contents: write
