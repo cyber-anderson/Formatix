@@ -29,7 +29,7 @@ Formatix is a fast, modern, and user-friendly batch image converter built with P
     Run the application:
     Bash
 
-    python Formatix_Image_Converter_v1.8.2.py
+    python python formatix.py
 
 How to Use
 
