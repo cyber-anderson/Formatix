@@ -4,7 +4,7 @@ on:
   push:
     tags:
       - 'v*'
-  workflow_dispatch: # ЭТА СТРОКА ДОБАВИТ КНОПКУ "RUN WORKFLOW"
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -28,10 +28,14 @@ jobs:
         run: |
           pyinstaller --noconsole --onefile --icon=icon.ico --add-data "icon.ico;." --collect-all tkinterdnd2 formatix.py
 
+      - name: Rename executable
+        shell: bash
+        run: mv dist/formatix.exe dist/formatix-${GITHUB_REF_NAME#v}.exe
+
       - name: Upload Release Asset
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: dist/formatix.exe
+          files: dist/formatix-${GITHUB_REF_NAME#v}.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
