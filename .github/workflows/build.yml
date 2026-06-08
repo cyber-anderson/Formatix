@@ -38,7 +38,7 @@ jobs:
         shell: bash
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          mv dist/formatix.exe dist/formatix-image-converter-${VERSION}.exe
+          mv dist/formatix.exe dist/formatix-image-converter-v${VERSION}.exe
 
       - name: Verify renamed file
         shell: bash
