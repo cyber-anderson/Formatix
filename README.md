@@ -18,7 +18,7 @@ No file limits, no internet connection. Your images never leave your computer.
   - Proportional by height
   - Smart crop (fill exact dimensions, center-cropped)
   - Custom (free width × height, no aspect ratio lock)
-- **ICO export** — automatically generates a full multi-size icon pack (16, 24, 32, 48, 64, 128, 256 px) in a single `.ico` file
+- **ICO сorrect** — automatically generates a full multi-size icon pack (16, 24, 32, 48, 64, 128, 256 px) in a single `*.ico` file
 - **Quality control** — adjustable quality slider for JPEG and WEBP (disabled automatically for lossless formats)
 - **Drag & Drop** support (requires `tkinterdnd2`)
 - **Conversion cache** — re-converting with the same settings skips already processed files instantly
@@ -86,7 +86,7 @@ You can enable or disable settings persistence in the Settings window — when d
 ## Roadmap / Future Plans
 
 Here are the features planned for upcoming releases:
-- [x] **Correct ICO** - generates a full multi-layered icon pack (16, 24, 32, 48, 64, 128, 256 px) in a single .ico file.
+- [x] **Correct ICO** - generates a full multi-layered icon pack (16, 24, 32, 48, 64, 128, 256 px) in a single *.ico file.
 - [ ] **Light Theme support** — a clean, high-contrast alternative to the current dark palette.
 - [ ] **File sorting** — ability to sort by name, size, or format.
 - [ ] **SVG support** — converting vector SVG files into raster formats (PNG, JPEG, WEBP).
