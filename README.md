@@ -83,6 +83,15 @@ Settings are stored in `~/.formatix_image_converter_settings.json`.
 You can enable or disable settings persistence in the Settings window — when disabled, the app always starts with default values (the language preference is always remembered regardless).
 
 ---
+## Roadmap / Future Plans
+
+Here are the features planned for upcoming releases:
+- [ ] **Light Theme support** — a clean, high-contrast alternative to the current dark palette.
+- [ ] **File sorting** — ability to sort the conversion queue by name, size, or format.
+- [ ] **Image preview** — quick preview of selected images directly inside the application.
+- [ ] **Side-by-side comparison** — a visual tool to compare the original and converted image quality.
+- [ ] **SVG support** — converting vector SVG files into raster formats (PNG, JPEG, WEBP).
+---
 
 ## ☕ Support the Author
 
