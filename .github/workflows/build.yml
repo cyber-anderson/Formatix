@@ -25,7 +25,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pyinstaller pillow tkinterdnd2
+          pip install pyinstaller pillow pillow-heif tkinterdnd2
 
       - name: Build EXE
         run: |
