@@ -88,26 +88,12 @@ You can enable or disable settings persistence in the Settings window — when d
 
 If Formatix saved you time or effort, a small donation is always appreciated.
 
-**Bitcoin (BTC)**
-```
-bc1q8ajkfe5zg26ugwthjlcjqtn06dveh3kehted90
-```
-
-**Ethereum (ETH)**
-```
-0x08bDC7b9d6f400260973B73063Eb81c27A10f1e3
-```
-
-**USDT TRC20**
-```
-TU2RZTdh8p2fEt2hnKrUTAZNj8trfW6hYE
-```
-
-**Solana (SOL)**
-```
-4VAPnL62M7o8SwrYHhE8ZSpHqDM8qvkqCjL4EKaAFj58
-```
-
+| Network      | Address |
+|--------------|---------|
+| Bitcoin      | bc1q8ajkfe5zg26ugwthjlcjqtn06dveh3kehted90 |
+| Ethereum     | 0x08bDC7b9d6f400260973B73063Eb81c27A10f1e3 |
+| USDT TRC20   | TU2RZTdh8p2fEt2hnKrUTAZNj8trfW6hYE |
+| Solana       | 4VAPnL62M7o8SwrYHhE8ZSpHqDM8qvkqCjL4EKaAFj58 |
 ---
 
 ## License
