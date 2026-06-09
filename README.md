@@ -46,11 +46,22 @@ pip install tkinterdnd2
 ```
 
 ---
-
 ## Running
+
+**Option 1 — Executable (Windows)**
+
+Download the latest `.exe` from [Releases](https://github.com/cyber-anderson/Formatix/releases) and run it directly. No Python required.
+
+**Option 2 — From source**
 
 ```bash
 python formatix.py
+```
+
+Requires Python 3.8+ and Pillow:
+
+```bash
+pip install pillow
 ```
 
 No installation, no setup. Just run.
