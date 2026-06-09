@@ -65,14 +65,14 @@ python formatix.py
 
 ## Output Formats
 
-| Format | Compression | Quality slider | Notes |
-|--------|-------------|----------------|-------|
-| WEBP | Lossy | ✅ | Best size/quality ratio |
-| JPEG | Lossy | ✅ | RGBA auto-converted to RGB |
-| PNG | Lossless | — | Format doesn't support quality changes |
-| BMP | No compression | — | Format doesn't support quality changes |
-| TIFF | Lossless | — | Format doesn't support quality changes |
-| ICO | Lossless | — | Format doesn't support quality changes <br> Multi-size pack, max 256×256 |
+| Format | Type & Quality | Notes |
+| :--- | :--- | :--- |
+| **WEBP** | Lossy (Adjustable) | Best size-to-quality ratio for web use |
+| **JPEG** | Lossy (Adjustable) | Standard format; RGBA transparency auto-converted to RGB |
+| **PNG** | Lossless (Fixed) | Ideal for graphics requiring perfect clarity and alpha channel |
+| **BMP** | Uncompressed (Fixed) | Raw bitmap files with no compression |
+| **TIFF** | Lossless (Fixed) | High-fidelity format used for archival and printing |
+| **ICO** | Lossless (Fixed) | Windows icon container (automatically generates sizes up to 256×256) |
 
 ---
 
