@@ -34,39 +34,26 @@ No file limits, no internet connection. Your images never leave your computer.
 
 ## Requirements
 
-- Python 3.8+
-- [Pillow](https://pypi.org/project/Pillow/)
+* **OS:** Windows (if you are using the pre-compiled `.exe` file)
+* **Python:** 3.10+ *(only required if running from source)*
+* **Dependencies:** `Pillow`, `tkinterdnd2` *(only required if running from source)*
 
-```bash
-pip install pillow
-```
-
-Optional (for drag & drop):
-
-```bash
-pip install tkinterdnd2
-```
-
----
 ## Running
 
-**Option 1 — Executable (Windows)**
+### Option 1 — Executable (Windows)
+Download the latest `.exe` from [Releases](https://github.com/cyber-anderson/Formatix/releases) and run it directly. No Python required. No installation, no setup — just run.
 
-Download the latest `.exe` from [Releases](https://github.com/cyber-anderson/Formatix/releases) and run it directly. No Python required.
+### Option 2 — From source
+To run the script from the source code, you need **Python 3.10+** and the necessary libraries.
 
-**Option 2 — From source**
-
+1. Install the required dependencies:
+```bash
+pip install Pillow tkinterdnd2
+```
+2. Run the application:
 ```bash
 python formatix.py
 ```
-
-Requires Python 3.8+ and Pillow:
-
-```bash
-pip install pillow
-```
-
-No installation, no setup. Just run.
 
 ---
 
