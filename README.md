@@ -86,7 +86,8 @@ You can enable or disable settings persistence in the Settings window — when d
 
 ## Support the Author
 
-If Formatix saved you time, consider a small donation:
+## ☕ Support the Author
+If Formatix saved you time or effort, a small donation is always appreciated.
 
 | Network      | Address |
 |--------------|---------|
