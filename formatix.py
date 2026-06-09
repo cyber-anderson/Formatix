@@ -2,6 +2,7 @@ import tkinter as tk
 import locale
 from tkinter import ttk, filedialog, messagebox
 import threading
+import webbrowser
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import os
 import sys
@@ -39,7 +40,7 @@ FG3     = "#45475a"
 BORDER  = "#313244"
 
 APP_NAME = "Formatix Image Converter"
-VERSION  = "1.8.2"
+VERSION  = "1.8.3"
 
 # Константы анимации сердечка
 _HEART_BEAT1_MS   = 120
@@ -728,7 +729,13 @@ class App(BaseClass):
         lf.pack(side="left", padx=20, fill="y")
         tk.Label(lf, text="⬡", font=("Segoe UI", 20), bg=BG2, fg=ACCENT).pack(side="left", anchor="center")
         tk.Label(lf, text=f" {APP_NAME}", font=("Segoe UI", 14, "bold"), bg=BG2, fg=FG).pack(side="left", anchor="center")
-        tk.Label(lf, text=f"  v{VERSION}", font=("Segoe UI", 10), bg=BG2, fg=FG2).pack(side="left", anchor="center")
+        _ver_lbl = tk.Label(lf, text=f"  v{VERSION}", font=("Segoe UI", 10),
+                             bg=BG2, fg=FG2, cursor="hand2")
+        _ver_lbl.pack(side="left", anchor="center")
+        _ver_lbl.bind("<Button-1>", lambda e: webbrowser.open(
+            "https://github.com/cyber-anderson/Formatix/releases"))
+        _ver_lbl.bind("<Enter>", lambda e: _ver_lbl.config(fg=FG))
+        _ver_lbl.bind("<Leave>", lambda e: _ver_lbl.config(fg=FG2))
 
         self._heart_container = tk.Frame(hdr, bg=BG2, width=45, height=56)
         self._heart_container.pack(side="right", padx=(0, 20))
