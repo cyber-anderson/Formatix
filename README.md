@@ -86,11 +86,13 @@ You can enable or disable settings persistence in the Settings window — when d
 ## Roadmap / Future Plans
 
 Here are the features planned for upcoming releases:
+- [x] **Correct ICO** - generates a full multi-size icon pack (16, 24, 32, 48, 64, 128, 256 px) in a single .ico file
 - [ ] **Light Theme support** — a clean, high-contrast alternative to the current dark palette.
 - [ ] **File sorting** — ability to sort by name, size, or format.
+- [ ] **SVG support** — converting vector SVG files into raster formats (PNG, JPEG, WEBP).
 - [ ] **Image preview** — quick preview of selected images directly inside the application.
 - [ ] **Side-by-side comparison** — a visual tool to compare the original and converted image quality.
-- [ ] **SVG support** — converting vector SVG files into raster formats (PNG, JPEG, WEBP).
+
 ---
 
 ## ☕ Support the Author
