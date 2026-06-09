@@ -80,12 +80,12 @@ No installation, no setup. Just run.
 
 | Format | Compression | Quality slider | Notes |
 |--------|-------------|----------------|-------|
-| WEBP   | Lossy       | ✅             | Best size/quality ratio |
-| JPEG   | Lossy       | ✅             | RGBA auto-converted to RGB |
-| PNG    | Lossless    | —              | |
-| BMP    | None        | —              | |
-| TIFF   | Lossless    | —              | |
-| ICO    | Lossless    | —              | Multi-size pack, max 256×256 |
+| WEBP | Lossy | ✅ | Best size/quality ratio |
+| JPEG | Lossy | ✅ | RGBA auto-converted to RGB |
+| PNG | Lossless | — | Format doesn't support quality changes |
+| BMP | No compression | — | Format doesn't support quality changes |
+| TIFF | Lossless | — | Format doesn't support quality changes |
+| ICO | Lossless | — | Format doesn't support quality changes <br> Multi-size pack, max 256×256 |
 
 ---
 
