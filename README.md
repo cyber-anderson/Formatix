@@ -87,7 +87,7 @@ You can enable or disable settings persistence in the Settings window — when d
 
 Here are the features planned for upcoming releases:
 - [ ] **Light Theme support** — a clean, high-contrast alternative to the current dark palette.
-- [ ] **File sorting** — ability to sort the conversion queue by name, size, or format.
+- [ ] **File sorting** — ability to sort by name, size, or format.
 - [ ] **Image preview** — quick preview of selected images directly inside the application.
 - [ ] **Side-by-side comparison** — a visual tool to compare the original and converted image quality.
 - [ ] **SVG support** — converting vector SVG files into raster formats (PNG, JPEG, WEBP).
