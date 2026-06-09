@@ -1,6 +1,7 @@
 # Formatix Image Converter
 
 Formatix is a desktop batch image converter built for speed and simplicity. Convert entire folders between WEBP, JPEG, PNG, ICO and more — with resize, crop, and quality control — in just a few clicks.
+
 No file limits, no internet connection. Your images never leave your computer.
 
 ![Formatix Screenshot](screenshot.png)
