@@ -4,7 +4,7 @@ Formatix is a desktop batch image converter built for speed and simplicity. Conv
 
 No file limits, no internet connection. Your images never leave your computer.
 
-![Formatix Screenshot](screenshot.png)
+https://github.com/user-attachments/assets/e02e780b-f78b-439b-9979-90f6eafb6b10
 
 ---
 
