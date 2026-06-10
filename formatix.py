@@ -526,37 +526,13 @@ class FancySlider(tk.Frame):
         """Включает или отключает слайдер визуально."""
         if enabled:
             self.scale.config(state="normal")
-
-            self.entry.config(
-                state="normal",
-                bg=ACCENT,
-                fg="#fff",
-                font=("Segoe UI", 10, "bold")
-            )
-
-            # Возвращаем последнее реальное значение качества
-            if hasattr(self, "_saved_quality"):
-                self._var.set(self._saved_quality)
-
+            self.entry.config(state="normal", bg=ACCENT, fg="#fff",
+                              font=("Segoe UI", 10, "bold"))
             self.entry_var.set(str(self._var.get()))
-
         else:
-            # Запоминаем текущее качество только если слайдер ещё не отключён
-            if not hasattr(self, "_saved_quality") or self._var.get() != self.to:
-                self._saved_quality = self._var.get()
-
-            # Визуально показываем 100%
-            self._var.set(self.to)
-
             self.scale.config(state="disabled")
-
-            self.entry.config(
-                state="disabled",
-                bg=BG3,
-                fg=FG3,
-                font=("Consolas", 10, "bold")
-            )
-
+            self.entry.config(state="disabled", bg=BG3, fg=FG3,
+                              font=("Consolas", 10, "bold"))
             self.entry_var.set("—")
 
 
