@@ -11,6 +11,8 @@ import random
 import json
 import ctypes
 from PIL import Image
+from PIL import ImageCms
+import io
 
 # Делаем приложение четким на экранах с масштабированием (High DPI)
 try:
@@ -22,6 +24,14 @@ HAS_DND = False
 try:
     from tkinterdnd2 import TkinterDnD, DND_FILES
     HAS_DND = True
+except Exception:
+    pass
+
+HEIF_AVAILABLE = False
+try:
+    from pillow_heif import register_heif_opener
+    register_heif_opener()
+    HEIF_AVAILABLE = True
 except Exception:
     pass
 
@@ -40,7 +50,7 @@ FG3     = "#45475a"
 BORDER  = "#313244"
 
 APP_NAME = "Formatix Image Converter"
-VERSION  = "1.8.3"
+VERSION  = "1.8.4"
 
 # Константы анимации сердечка
 _HEART_BEAT1_MS   = 120
@@ -56,8 +66,8 @@ CRYPTO_WALLETS = [
     (" Solana",    "4VAPnL62M7o8SwrYHhE8ZSpHqDM8qvkqCjL4EKaAFj58")
 ]
 
-FORMATS  = ["WEBP", "JPEG", "PNG", "BMP", "TIFF", "ICO"]
-IMG_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tiff", ".tif", ".gif", ".ico"}
+FORMATS  = ["WEBP", "JPEG", "PNG", "BMP", "TIFF", "ICO"] + (["HEIC"] if HEIF_AVAILABLE else [])
+IMG_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tiff", ".tif", ".gif", ".ico"} | ({".heic", ".heif"} if HEIF_AVAILABLE else set())
 
 # ── LOCALIZATION ───────────────────────────────────────────────────────────────
 LANGUAGES = {"en": "English", "ru": "Русский", "uk": "Українська", "de": "Deutsch", "zh": "中文"}
@@ -1108,7 +1118,7 @@ class App(BaseClass):
         fmt     = self._fmt.get()
         prev    = getattr(self, "_prev_fmt", None)
 
-        quality_matters = fmt in ("JPEG", "WEBP")
+        quality_matters = fmt in ("JPEG", "WEBP", "HEIC")
         if hasattr(self, "_qual_slider"):
             self._qual_slider.set_enabled(quality_matters)
 
@@ -1276,7 +1286,7 @@ class App(BaseClass):
     def _add(self):
         """Открывает диалог добавления файлов."""
         files = filedialog.askopenfilenames(
-            filetypes=[("Images", "*.jpg *.jpeg *.png *.webp *.bmp *.tiff *.gif *.ico"),
+            filetypes=[("Images", "*.jpg *.jpeg *.png *.webp *.bmp *.tiff *.gif *.ico" + (" *.heic *.heif" if HEIF_AVAILABLE else "")),
                        ("All", "*.*")])
         for f in files:
             if f not in self._files:
@@ -1619,8 +1629,27 @@ class App(BaseClass):
         size_str = "0 KB"
         try:
             with Image.open(path) as img:
+                # Пробуем корректно перевести изображение в sRGB,
+                # если исходный файл содержит ICC-профиль (например Display P3)
+                try:
+                    icc_profile = img.info.get("icc_profile")
+
+                    if icc_profile:
+                        src_profile = ImageCms.ImageCmsProfile(io.BytesIO(icc_profile))
+                        dst_profile = ImageCms.createProfile("sRGB")
+
+                        img = ImageCms.profileToProfile(
+                            img,
+                            src_profile,
+                            dst_profile,
+                            outputMode="RGB"
+                        )
+                except Exception:
+                    pass
+
                 orig_w, orig_h = img.size
                 rm = self._resize_modes_localized()
+
                 if mode == rm[1]:
                     new_w = target_w
                     new_h = max(1, round(orig_h * (target_w / orig_w)))
@@ -1630,23 +1659,23 @@ class App(BaseClass):
                     new_w = max(1, round(orig_w * (target_h / orig_h)))
                     img = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
                 elif mode == rm[3]:
-                    scale  = max(target_w / orig_w, target_h / orig_h)
+                    scale = max(target_w / orig_w, target_h / orig_h)
                     inter_w = max(1, round(orig_w * scale))
                     inter_h = max(1, round(orig_h * scale))
-                    img    = img.resize((inter_w, inter_h), Image.Resampling.LANCZOS)
-                    left   = (inter_w - target_w) // 2
-                    top    = (inter_h - target_h) // 2
-                    img    = img.crop((left, top, left + target_w, top + target_h))
-                elif mode == rm[4]:  # Пользовательский — свободное изменение без пропорций
+                    img = img.resize((inter_w, inter_h), Image.Resampling.LANCZOS)
+                    left = (inter_w - target_w) // 2
+                    top = (inter_h - target_h) // 2
+                    img = img.crop((left, top, left + target_w, top + target_h))
+                elif mode == rm[4]:
                     img = img.resize((target_w, target_h), Image.Resampling.LANCZOS)
 
                 if fmt == "JPEG" and img.mode in ("RGBA", "P", "PA", "LA"):
-                    img    = img.convert("RGBA")
+                    img = img.convert("RGBA")
                     bg_img = Image.new("RGB", img.size, (255, 255, 255))
                     bg_img.paste(img, mask=img.split()[3])
                     img = bg_img
 
-                kw = {"quality": quality} if fmt in ("JPEG", "WEBP") else {}
+                kw = {"quality": quality} if fmt in ("JPEG", "WEBP", "HEIC") else {}
 
                 if fmt == "ICO":
                     if img.mode not in ("RGBA", "RGB"):
@@ -1656,13 +1685,14 @@ class App(BaseClass):
                         all_sizes = [s for s in sorted(set(std_sizes + [img.size[0]])) if s <= 256]
                         kw["sizes"] = [(s, s) for s in all_sizes]
                     else:
-                        max_side  = min(max(img.size), 256)
+                        max_side = min(max(img.size), 256)
                         ico_sizes = [s for s in std_sizes if s < max_side]
                         ico_sizes.append(max_side)
                         kw["sizes"] = sorted([(s, s) for s in set(ico_sizes)])
 
                 tmp_path = out_path + ".tmp"
-                img.save(tmp_path, fmt, **kw)
+                save_fmt = "HEIF" if fmt == "HEIC" else fmt
+                img.save(tmp_path, save_fmt, **kw)
                 if os.path.exists(out_path):
                     os.remove(out_path)
                 os.replace(tmp_path, out_path)
