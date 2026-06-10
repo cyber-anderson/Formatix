@@ -10,26 +10,21 @@ https://github.com/user-attachments/assets/e02e780b-f78b-439b-9979-90f6eafb6b10
 
 ## Features
 
-- **Batch conversion** — add hundreds of files at once, convert in one click
-- **7 output formats** — WEBP, JPEG, PNG, BMP, TIFF, ICO, HEIF/HEIC
-- **HEIC/HEIF support** — open, convert and export Apple HEIC/HEIF images via pillow-heif
-- **5 resize modes:**
-  - No change
-  - Proportional by width
-  - Proportional by height
-  - Smart crop (fill exact dimensions, center-cropped)
-  - Custom (free width × height, no aspect ratio lock)
-- **Сorrect ICO** — automatically generates a full multi-size icon pack (16, 24, 32, 48, 64, 128, 256 px) in a single `*.ico` file
-- **Quality control** — adjustable quality slider for JPEG, WEBP and HEIC (disabled automatically for lossless formats)
-- **Drag & Drop** support (requires `tkinterdnd2`)
-- **Conversion cache** — re-converting with the same settings skips already processed files instantly
-- **Atomic file writes** — files are never left in a half-written state
-- **Overwrite protection** — warns before replacing existing files, with per-session confirmation
-- **File size stats** — shows original vs. converted size after each batch
+- **Batch conversion** — convert hundreds of images in a single operation
+- **7 output formats** — WEBP, JPEG, PNG, BMP, TIFF, ICO, HEIC/HEIF
+- **5 resize modes** — proportional scaling, smart crop and custom dimensions
+- **Automatic color profile processing** — ICC-based color space conversion using Pillow ImageCms for improved color accuracy
+- **Multi-size ICO generation** — automatically creates icon packs up to 256×256 px
+- **Adjustable quality settings** — JPEG, WEBP and HEIC
+- **Drag & Drop support**
+- **Conversion cache** — instantly skips files already converted with identical settings
+- **Atomic file writes** — prevents partially written output files
+- **Overwrite protection**
+- **File size statistics**
 - **5 interface languages** — English, Русский, Українська, Deutsch, 中文
-- **Auto language detection** — picks your system language on first launch (Windows UI language via LCID)
-- **Remember settings** — optionally saves format, quality and resize mode between sessions
-- **High DPI aware** — crisp rendering on scaled displays
+- **Automatic language detection**
+- **Remember settings between sessions**
+- **High DPI aware**
 
 ---
 
