@@ -12,6 +12,7 @@ https://github.com/user-attachments/assets/e02e780b-f78b-439b-9979-90f6eafb6b10
 
 - **Batch conversion** — convert hundreds of images in a single operation
 - **7 output formats** — WEBP, JPEG, PNG, BMP, TIFF, ICO, HEIC/HEIF
+- **Multi-threaded processing** — converts multiple images simultaneously for faster batch operations
 - **5 resize modes** — proportional scaling, smart crop and custom dimensions
 - **Automatic color profile processing** — ICC-based color space conversion using Pillow ImageCms for improved color accuracy
 - **Multi-size ICO generation** — automatically creates icon packs up to 256×256 px
