@@ -39,6 +39,7 @@ Formatix Image Converter supports opening and exporting HEIC/HEIF images through
 This enables direct conversion between HEIC and other supported formats, including JPEG, PNG, WEBP, BMP, TIFF and ICO.
 
 Color profile processing is applied automatically to improve color accuracy when converting HEIC images containing embedded ICC profiles.
+
 ---
 
 ## Requirements
