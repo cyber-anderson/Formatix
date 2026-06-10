@@ -1,6 +1,6 @@
 # Formatix Image Converter
 
-Formatix is a fast, lightweight batch image converter for Windows. Convert, resize and optimize WEBP, JPEG, PNG, BMP, TIFF, ICO and HEIC images in just a few clicks.
+Formatix is a fast, lightweight batch image converter for Windows. Convert, resize and optimize WEBP, JPEG, PNG, BMP, TIFF, ICO and HEIF/HEIC images in just a few clicks.
 
 No file limits, no internet connection. Your images never leave your computer.
 
@@ -11,7 +11,7 @@ https://github.com/user-attachments/assets/e02e780b-f78b-439b-9979-90f6eafb6b10
 ## Features
 
 - **Batch conversion** — add hundreds of files at once, convert in one click
-- **7 output formats** — WEBP, JPEG, PNG, BMP, TIFF, ICO, HEIC
+- **7 output formats** — WEBP, JPEG, PNG, BMP, TIFF, ICO, HEIF/HEIC
 - **HEIC/HEIF support** — open, convert and export Apple HEIC/HEIF images via pillow-heif
 - **5 resize modes:**
   - No change
