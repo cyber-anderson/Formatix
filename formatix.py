@@ -498,16 +498,27 @@ class FancySlider(tk.Frame):
         # Обновляем поле ввода только если пользователь прямо сейчас не вводит в него текст
         if self.focus_get() != self.entry:
             self.entry_var.set(str(self._var.get()))
-
-    def _on_entry_write(self, *args):
         # Если фокус в поле, обновляем ползунок (чтобы клавиатура работала)
+    def _on_entry_write(self, *args):
         if self.focus_get() == self.entry:
             val_str = self.entry_var.get()
+
             if val_str.isdigit():
                 val = int(val_str)
+
                 if val > self.to:
                     val = self.to
+                    self._var.set(val)
+
+                    if val_str != str(val):
+                        self.entry_var.set(str(val))
+                        return
+
+                elif val < self.from_:
+                    val = self.from_
+
                 self._var.set(val)
+
             elif val_str == "":
                 self._var.set(self.from_)
 
