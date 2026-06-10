@@ -1,6 +1,6 @@
 # Formatix Image Converter
 
-Formatix is a desktop batch image converter built for speed and simplicity. Convert entire folders between WEBP, JPEG, PNG, ICO and more — with resize, crop, and quality control — in just a few clicks.
+Formatix is a fast, lightweight batch image converter for Windows. Convert, resize and optimize WEBP, JPEG, PNG, BMP, TIFF, ICO and HEIC images in just a few clicks.
 
 No file limits, no internet connection. Your images never leave your computer.
 
@@ -11,7 +11,8 @@ https://github.com/user-attachments/assets/e02e780b-f78b-439b-9979-90f6eafb6b10
 ## Features
 
 - **Batch conversion** — add hundreds of files at once, convert in one click
-- **6 output formats** — WEBP, JPEG, PNG, BMP, TIFF, ICO
+- **7 output formats** — WEBP, JPEG, PNG, BMP, TIFF, ICO, HEIC
+- **HEIC/HEIF support** — open, convert and export Apple HEIC/HEIF images via pillow-heif
 - **5 resize modes:**
   - No change
   - Proportional by width
@@ -19,7 +20,7 @@ https://github.com/user-attachments/assets/e02e780b-f78b-439b-9979-90f6eafb6b10
   - Smart crop (fill exact dimensions, center-cropped)
   - Custom (free width × height, no aspect ratio lock)
 - **Сorrect ICO** — automatically generates a full multi-size icon pack (16, 24, 32, 48, 64, 128, 256 px) in a single `*.ico` file
-- **Quality control** — adjustable quality slider for JPEG and WEBP (disabled automatically for lossless formats)
+- **Quality control** — adjustable quality slider for JPEG, WEBP and HEIC (disabled automatically for lossless formats)
 - **Drag & Drop** support (requires `tkinterdnd2`)
 - **Conversion cache** — re-converting with the same settings skips already processed files instantly
 - **Atomic file writes** — files are never left in a half-written state
@@ -31,12 +32,20 @@ https://github.com/user-attachments/assets/e02e780b-f78b-439b-9979-90f6eafb6b10
 - **High DPI aware** — crisp rendering on scaled displays
 
 ---
+## HEIC Support
+
+Formatix Image Converter supports opening and exporting HEIC/HEIF images through the pillow-heif library.
+
+This enables direct conversion between HEIC and other supported formats, including JPEG, PNG, WEBP, BMP, TIFF and ICO.
+
+Color profile processing is applied automatically to improve color accuracy when converting HEIC images containing embedded ICC profiles.
+---
 
 ## Requirements
 
 * **OS:** Windows (if you are using the pre-compiled `.exe` file)
 * **Python:** 3.10+ *(only required if running from source)*
-* **Dependencies:** `Pillow`, `tkinterdnd2` *(only required if running from source)*
+* **Dependencies:** `Pillow`, `pillow-heif`, `tkinterdnd2` *(only required if running from source)*
 
 ## Running
 
@@ -48,7 +57,7 @@ To run the script from the source code, you need **Python 3.10+** and the necess
 
 1. Install the required dependencies:
 ```bash
-pip install Pillow tkinterdnd2
+pip install Pillow pillow-heif tkinterdnd2
 ```
 2. Run the application:
 ```bash
@@ -59,7 +68,7 @@ python formatix.py
 
 ## Supported Input Formats
 
-`.jpg` `.jpeg` `.png` `.webp` `.bmp` `.tiff` `.tif` `.gif` `.ico`
+`.jpg` `.jpeg` `.png` `.webp` `.bmp` `.tiff` `.tif` `.gif` `.ico` `.heic` `.heif`
 
 ---
 
@@ -73,6 +82,7 @@ python formatix.py
 | **BMP** | Uncompressed (Fixed) | Raw bitmap files with no compression |
 | **TIFF** | Lossless (Fixed) | High-fidelity format used for archival and printing |
 | **ICO** | Lossless (Fixed) | Windows icon container (automatically generates sizes up to 256×256) |
+| **HEIC** | Lossy (Adjustable) | High Efficiency Image Format (HEIF/HEIC), commonly used by Apple devices |
 
 ---
 
@@ -87,7 +97,7 @@ You can enable or disable settings persistence in the Settings window — when d
 
 Here are the features planned for upcoming releases:
 - [x] **Correct ICO** — generates a full multi-layered icon pack (16, 24, 32, 48, 64, 128, 256 px) in a single *.ico file.
-- [ ] **HEIC support** — ability to convert high-efficiency photos from Apple devices into standard web formats (JPEG, PNG, WEBP).
+- [x] **HEIC support** — ability to convert high-efficiency photos from Apple devices into standard web formats (JPEG, PNG, WEBP).
 - [ ] **Light Theme support** — a clean, high-contrast alternative to the current dark palette.
 - [ ] **File sorting** — ability to sort by name, size, or resolution.
 - [ ] **SVG support** — converting vector SVG files into raster formats (PNG, JPEG, WEBP).
