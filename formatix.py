@@ -846,6 +846,16 @@ class App(BaseClass):
         self._pick_dir_btn.pack(side="left")
         self._clear_dir_btn = self._btn(folder_row, "✕", self._clear_dir, dim=True)
         self._clear_dir_btn.pack(side="left", padx=(4, 0))
+        self._open_dir_btn = self._btn(
+            folder_row,
+            "📂",
+            self._open_out_dir,
+            dim=True
+        )
+        self._open_dir_btn.pack(side="left", padx=(8, 0))
+
+        # Изначально неактивна
+        self._open_dir_btn.configure(fg=FG3)
 
         # Вся нижняя панель управления — один горизонтальный ряд через pack
         # Каждый блок: лейбл сверху + виджет снизу. Выравнивание — anchor="n"
@@ -984,22 +994,6 @@ class App(BaseClass):
 
         lbl = tk.Label(hdr, text=title, font=("Segoe UI", 10, "bold"), bg=BG3, fg=FG, padx=10)
         lbl.pack(side="left")
-
-        if is_result:
-            self._open_dir_btn = tk.Label(hdr, text="📂", font=("Segoe UI", 10),
-                                          bg=BG3, fg=FG3, padx=8, cursor="hand2")
-            self._open_dir_btn.pack(side="right")
-            self._open_dir_btn.bind(
-                "<Button-1>",
-                lambda e: self._open_out_dir() if self._open_dir_btn.cget("fg") != FG3 else None)
-            self._open_dir_btn.bind(
-                "<Enter>",
-                lambda e: self._open_dir_btn.config(fg=ACCENT)
-                if self._open_dir_btn.cget("fg") != FG3 else None)
-            self._open_dir_btn.bind(
-                "<Leave>",
-                lambda e: self._open_dir_btn.config(fg=GREEN)
-                if self._open_dir_btn.cget("fg") != FG3 else None)
 
         inner = tk.Frame(card, bg=CARD)
         inner.pack(fill="both", expand=True)
