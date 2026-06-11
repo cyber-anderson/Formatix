@@ -50,7 +50,7 @@ FG3     = "#45475a"
 BORDER  = "#313244"
 
 APP_NAME = "Formatix Image Converter"
-VERSION  = "1.9.0"
+VERSION  = "1.8.4"
 
 # Константы анимации сердечка
 _HEART_BEAT1_MS   = 120
@@ -1637,6 +1637,10 @@ class App(BaseClass):
             with Image.open(path) as img:
                 orig_w, orig_h = img.size  # берём ДО ICC
 
+                # CMYK не поддерживается ImageCms напрямую — конвертируем заранее
+                if img.mode == "CMYK":
+                    img = img.convert("RGB")
+
                 try:
                     icc_profile = img.info.get("icc_profile")
                     if icc_profile:
@@ -1650,7 +1654,6 @@ class App(BaseClass):
                 except Exception:
                     pass
 
-                orig_w, orig_h = img.size
                 rm = self._resize_modes_localized()
 
                 if mode == rm[1]:
