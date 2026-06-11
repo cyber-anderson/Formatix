@@ -50,7 +50,7 @@ FG3     = "#45475a"
 BORDER  = "#313244"
 
 APP_NAME = "Formatix Image Converter"
-VERSION  = "1.8.4"
+VERSION  = "1.8.5"
 
 # Константы анимации сердечка
 _HEART_BEAT1_MS   = 120
@@ -66,7 +66,7 @@ CRYPTO_WALLETS = [
     (" Solana",    "4VAPnL62M7o8SwrYHhE8ZSpHqDM8qvkqCjL4EKaAFj58")
 ]
 
-FORMATS  = ["WEBP", "JPEG", "PNG", "BMP", "TIFF", "ICO"] + (["HEIC"] if HEIF_AVAILABLE else [])
+FORMATS = ["WEBP", "JPEG"] + (["HEIC"] if HEIF_AVAILABLE else []) + ["PNG", "BMP", "TIFF", "ICO"]
 IMG_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tiff", ".tif", ".gif", ".ico"} | ({".heic", ".heif"} if HEIF_AVAILABLE else set())
 
 # ── LOCALIZATION ───────────────────────────────────────────────────────────────
@@ -1022,6 +1022,7 @@ class App(BaseClass):
             tree.column("name",   width=150, minwidth=100, stretch=True,  anchor="w")
             tree.column("res",    width=95,  minwidth=95,  stretch=False, anchor="center")
             tree.column("size",   width=105, minwidth=105, stretch=False, anchor="center")
+            tree.bind("<Button-1>", lambda e: "break" if tree.identify_region(e.x, e.y) == "separator" and tree.identify_column(e.x) == "#1" else None)
         else:
             cols = ("name", "res", "size")
             tree = ttk.Treeview(inner, columns=cols, show="headings", style="Treeview")
@@ -1634,20 +1635,17 @@ class App(BaseClass):
         size_str = "0 KB"
         try:
             with Image.open(path) as img:
-                # Пробуем корректно перевести изображение в sRGB,
-                # если исходный файл содержит ICC-профиль (например Display P3)
+                orig_w, orig_h = img.size  # ← берём ДО ICC
+
                 try:
                     icc_profile = img.info.get("icc_profile")
-
                     if icc_profile:
                         src_profile = ImageCms.ImageCmsProfile(io.BytesIO(icc_profile))
                         dst_profile = ImageCms.createProfile("sRGB")
-
+                        # Сохраняем альфа если он есть
+                        out_mode = "RGBA" if img.mode in ("RGBA", "PA", "LA") else "RGB"
                         img = ImageCms.profileToProfile(
-                            img,
-                            src_profile,
-                            dst_profile,
-                            outputMode="RGB"
+                            img, src_profile, dst_profile, outputMode=out_mode
                         )
                 except Exception:
                     pass
