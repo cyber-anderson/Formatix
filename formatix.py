@@ -1022,7 +1022,12 @@ class App(BaseClass):
             tree.column("name",   width=150, minwidth=100, stretch=True,  anchor="w")
             tree.column("res",    width=95,  minwidth=95,  stretch=False, anchor="center")
             tree.column("size",   width=105, minwidth=105, stretch=False, anchor="center")
-            tree.bind("<Button-1>", lambda e: "break" if tree.identify_region(e.x, e.y) == "separator" and tree.identify_column(e.x) == "#1" else None)
+            def _block_status_resize(e, t=tree):
+                if t.identify_region(e.x, e.y) == "separator":
+                    col = t.identify_column(e.x)
+                    if col in ("#1",):  # только правая граница status
+                        return "break"
+            tree.bind("<Button-1>", _block_status_resize)
         else:
             cols = ("name", "res", "size")
             tree = ttk.Treeview(inner, columns=cols, show="headings", style="Treeview")
