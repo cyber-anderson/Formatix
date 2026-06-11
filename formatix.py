@@ -1635,7 +1635,7 @@ class App(BaseClass):
         size_str = "0 KB"
         try:
             with Image.open(path) as img:
-                orig_w, orig_h = img.size  # ← берём ДО ICC
+                orig_w, orig_h = img.size  # берём ДО ICC
 
                 try:
                     icc_profile = img.info.get("icc_profile")
