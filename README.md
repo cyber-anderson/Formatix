@@ -99,12 +99,14 @@ Here are the features planned for upcoming releases:
 
 If Formatix saved you time or effort, a small donation is always appreciated.
 
-| Network      | Address |
-|--------------|---------|
-| Bitcoin      | bc1q8ajkfe5zg26ugwthjlcjqtn06dveh3kehted90 |
-| Ethereum     | 0x08bDC7b9d6f400260973B73063Eb81c27A10f1e3 |
-| USDT TRC20   | TU2RZTdh8p2fEt2hnKrUTAZNj8trfW6hYE |
-| Solana       | 4VAPnL62M7o8SwrYHhE8ZSpHqDM8qvkqCjL4EKaAFj58 |
+| Currency | Network | Address |
+|----------|---------|---------|
+| BTC | Bitcoin | `bc1q8ajkfe5zg26ugwthjlcjqtn06dveh3kehted90` |
+| ETH / USDT / BNB | ERC-20 / BEP-20 | `0x08bDC7b9d6f400260973B73063Eb81c27A10f1e3` |
+| USDT | TRC-20 | `TU2RZTdh8p2fEt2hnKrUTAZNj8trfW6hYE` |
+| SOL | Solana | `4VAPnL62M7o8SwrYHhE8ZSpHqDM8qvkqCjL4EKaAFj58` |
+| TON | Toncoin  | `UQBPQAbGEsyCGNEZAXZoUBOcaTYglXl9FAZSu-7gQdxE-k7O` |
+
 ---
 
 ## License
