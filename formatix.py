@@ -60,10 +60,11 @@ _HEART_MIN_IDLE   = 1800
 _HEART_MAX_IDLE   = 2600
 
 CRYPTO_WALLETS = [
-    (" Bitcoin",   "bc1q8ajkfe5zg26ugwthjlcjqtn06dveh3kehted90"),
-    (" Ethereum",  "0x08bDC7b9d6f400260973B73063Eb81c27A10f1e3"),
-    (" USDT TRC20","TU2RZTdh8p2fEt2hnKrUTAZNj8trfW6hYE"),
-    (" Solana",    "4VAPnL62M7o8SwrYHhE8ZSpHqDM8qvkqCjL4EKaAFj58")
+    ("Bitcoin",          "bc1q8ajkfe5zg26ugwthjlcjqtn06dveh3kehted90"),
+    ("Ethereum",         "0x08bDC7b9d6f400260973B73063Eb81c27A10f1e3"),
+    ("USDT (TRC20)",     "TU2RZTdh8p2fEt2hnKrUTAZNj8trfW6hYE"),
+    ("Solana",           "4VAPnL62M7o8SwrYHhE8ZSpHqDM8qvkqCjL4EKaAFj58"),
+    ("TON",              "UQBPQAbGEsyCGNEZAXZoUBOcaTYglXl9FAZSu-7gQdxE-k7O"),
 ]
 
 FORMATS = ["WEBP", "JPEG"] + (["HEIC"] if HEIF_AVAILABLE else []) + ["PNG", "BMP", "TIFF", "ICO"]
@@ -1944,7 +1945,7 @@ class App(BaseClass):
         except Exception:
             pass
 
-        ww, wh = 550, 450
+        ww, wh = 555, 500
         win.update_idletasks()
         sw, sh = win.winfo_screenwidth(), win.winfo_screenheight()
         win.geometry(f"{ww}x{wh}+{(sw - ww) // 2}+{(sh - wh) // 2}")
@@ -1962,7 +1963,7 @@ class App(BaseClass):
             tk.Label(row, text=lbl, font=("Segoe UI", 10, "bold"),
                      bg=CARD, fg=ACCENT, width=12, anchor="w").pack(side="left")
             e = tk.Entry(row, font=("Consolas", 10), bg=CARD, fg=FG, relief="flat", bd=0,
-                         readonlybackground=CARD, insertbackground=CARD, width=45)
+                         readonlybackground=CARD, insertbackground=CARD, width=50)
             e.insert(0, addr)
             e.config(state="readonly")
             e.pack(side="left", padx=5)
