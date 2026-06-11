@@ -193,7 +193,7 @@ STRINGS = {
         "settings_lang": "Мова інтерфейсу",
         "settings_close": "Закрити",
         "donate_title": "Підтримати автора",
-        "donate_sub": f"Дякуємо за використання {APP_NAME}!",
+        "donate_sub": f"Дякую за використання {APP_NAME}!",
         "donate_desc": "Якщо програма заощадила ваш час, ви можете\nпідтримати автора криптою",
         "donate_copied": "Адресу скопійовано!",
         "donate_close": "Закрити",
