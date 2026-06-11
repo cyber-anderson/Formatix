@@ -11,7 +11,7 @@ https://github.com/user-attachments/assets/e02e780b-f78b-439b-9979-90f6eafb6b10
 ## Features
 
 - **Batch conversion** — convert hundreds of images in a single operation
-- **7 output formats** — WEBP, JPEG, PNG, BMP, TIFF, ICO, HEIC/HEIF
+- **7 output formats** — WEBP, JPEG, HEIC/HEIF, PNG, BMP, TIFF, ICO
 - **Multi-threaded processing** — converts multiple images simultaneously for faster batch operations
 - **5 resize modes** — proportional scaling, smart crop and custom dimensions
 - **Automatic color profile processing** — ICC-based color space conversion using Pillow ImageCms for improved color accuracy
@@ -66,11 +66,12 @@ python formatix.py
 | :--- | :--- | :--- |
 | **WEBP** | Lossy (Adjustable) | Best size-to-quality ratio for web use |
 | **JPEG** | Lossy (Adjustable) | Standard format; RGBA transparency auto-converted to RGB |
+| **HEIC** | Lossy (Adjustable) | High Efficiency Image Format (HEIF/HEIC), commonly used by Apple devices |
 | **PNG** | Lossless (Fixed) | Ideal for graphics requiring perfect clarity and alpha channel |
 | **BMP** | Uncompressed (Fixed) | Raw bitmap files with no compression |
 | **TIFF** | Lossless (Fixed) | High-fidelity format used for archival and printing |
 | **ICO** | Lossless (Fixed) | Windows icon container (automatically generates sizes up to 256×256) |
-| **HEIC** | Lossy (Adjustable) | High Efficiency Image Format (HEIF/HEIC), commonly used by Apple devices |
+
 
 ---
 
