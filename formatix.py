@@ -52,6 +52,13 @@ try:
 except Exception:
     pass
 
+SVG_AVAILABLE = False
+try:
+    import resvg_py as _resvg_py
+    SVG_AVAILABLE = True
+except Exception:
+    pass
+
 # ── палитра ───────────────────────────────────────────────────────────────────
 BG      = "#0f0f1a"
 BG2     = "#181825"
@@ -85,7 +92,7 @@ CRYPTO_WALLETS = [
 ]
 
 FORMATS = ["WEBP", "JPEG"] + (["HEIC"] if HEIF_AVAILABLE else []) + ["PNG", "BMP", "TIFF", "ICO"]
-IMG_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tiff", ".tif", ".gif", ".ico"} | ({".heic", ".heif"} if HEIF_AVAILABLE else set())
+IMG_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tiff", ".tif", ".gif", ".ico"} | ({".heic", ".heif"} if HEIF_AVAILABLE else set()) | ({".svg"} if SVG_AVAILABLE else set())
 
 # ── LOCALIZATION ───────────────────────────────────────────────────────────────
 LANGUAGES = {"en": "English", "ru": "Русский", "uk": "Українська", "de": "Deutsch", "zh": "中文"}
@@ -128,6 +135,8 @@ STRINGS = {
         "ico_too_large_cancel": "Cancel",
         "ico_too_large_ok": "OK",
         "settings_remember": "Remember settings",
+        "svg_no_size_title": "SVG: size required",
+        "svg_no_size_msg": "SVG files have no fixed resolution.\nPlease set width and height in \u201cCustom\u201d mode before converting.",
     },
     "ru": {
         "add": "+ Добавить", "clear": "✕ Очистить",
@@ -166,6 +175,8 @@ STRINGS = {
         "ico_too_large_cancel": "Отмена",
         "ico_too_large_ok": "ОК",
         "settings_remember": "Запоминать настройки",
+        "svg_no_size_title": "SVG: требуется размер",
+        "svg_no_size_msg": "SVG-файлы не имеют фиксированного разрешения.\nПожалуйста, задайте ширину и высоту в режиме «Пользовательский» перед конвертацией.",
     },
     "uk": {
         "add": "+ Додати", "clear": "✕ Очистити",
@@ -205,6 +216,8 @@ STRINGS = {
         "ico_too_large_cancel": "Скасувати",
         "ico_too_large_ok": "ОК",
         "settings_remember": "Запам'ятовувати налаштування",
+        "svg_no_size_title": "SVG: потрібен розмір",
+        "svg_no_size_msg": "SVG-файли не мають фіксованої роздільності.\nБудь ласка, задайте ширину і висоту в режимі «Користувацький» перед конвертацією.",
     },
     "de": {
         "add": "+ Hinzufügen", "clear": "✕ Leeren",
@@ -243,6 +256,8 @@ STRINGS = {
         "ico_too_large_cancel": "Abbrechen",
         "ico_too_large_ok": "OK",
         "settings_remember": "Einstellungen speichern",
+        "svg_no_size_title": "SVG: Größe erforderlich",
+        "svg_no_size_msg": "SVG-Dateien haben keine feste Auflösung.\nBitte geben Sie Breite und Höhe im Modus \u201eBenutzerdefiniert\u201c vor der Konvertierung ein.",
     },
     "zh": {
         "add": "+ 添加", "clear": "✕ 清空",
@@ -281,6 +296,8 @@ STRINGS = {
         "ico_too_large_cancel": "取消",
         "ico_too_large_ok": "确定",
         "settings_remember": "记住设置",
+        "svg_no_size_title": "SVG：需要指定尺寸",
+        "svg_no_size_msg": "SVG \u6587\u4ef6\u6ca1\u6709\u56fa\u5b9a\u5206\u8fa8\u7387\u3002\n\u8bf7\u5728\u300c\u81ea\u5b9a\u4e49\u300d\u6a21\u5f0f\u4e0b\u8bbe\u7f6e\u5bbd\u5ea6\u548c\u9ad8\u5ea6\u540e\u518d\u8fdb\u884c\u8f6c\u6362\u3002",
     },
 }
 
@@ -322,6 +339,8 @@ def get_file_size_str(path):
 
 def get_image_res_str(path):
     """Возвращает разрешение изображения в виде строки 'WxH'."""
+    if os.path.splitext(path)[1].lower() == ".svg":
+        return "SVG"
     try:
         with Image.open(path) as img:
             w, h = img.size
@@ -1221,6 +1240,14 @@ class App(BaseClass):
         """Обновляет состояние полей ввода размера при смене режима."""
         mode = self._resize_mode.get()
         rm   = self._resize_modes_localized()
+
+        # Если пользователь вручную выбрал несовместимый с SVG режим — предупредить и откатить
+        if event is not None and SVG_AVAILABLE and mode not in (rm[3], rm[4]):
+            if any(os.path.splitext(p)[1].lower() == ".svg" for p in self._files):
+                messagebox.showerror(self.t("svg_no_size_title"), self.t("svg_no_size_msg"))
+                self._resize_mode.set(rm[4])  # откатываем на Custom
+                mode = rm[4]
+
         if not hasattr(self, "_last_width"):
             self._last_width  = ""
         if not hasattr(self, "_last_height"):
@@ -1441,7 +1468,9 @@ class App(BaseClass):
     def _add(self):
         """Открывает диалог добавления файлов."""
         files = filedialog.askopenfilenames(
-            filetypes=[("Images", "*.jpg *.jpeg *.png *.webp *.bmp *.tiff *.gif *.ico" + (" *.heic *.heif" if HEIF_AVAILABLE else "")),
+            filetypes=[("Images", "*.jpg *.jpeg *.png *.webp *.bmp *.tiff *.gif *.ico"
+                        + (" *.heic *.heif" if HEIF_AVAILABLE else "")
+                        + (" *.svg" if SVG_AVAILABLE else "")),
                        ("All", "*.*")])
         for f in files:
             if f not in self._files:
@@ -1504,8 +1533,17 @@ class App(BaseClass):
         else:
             self._lbl_size_dst.config(text=f"{self.t('became')} 0.0 KB", fg=FG3)
 
+        # Если в списке есть SVG-файлы — автоматически переключаем на Custom
+        if SVG_AVAILABLE and any(os.path.splitext(p)[1].lower() == ".svg" for p in self._files):
+            rm = self._resize_modes_localized()
+            if self._resize_mode.get() != rm[4]:  # rm[4] = Custom
+                self._resize_mode.set(rm[4])
+                self._on_resize_mode_changed()  # event=None → защита не срабатывает
+
         # Отложенное обновление скроллбара, чтобы Treeview успел отрисовать новые строки
         self.after(50, self._refresh_scrollbars)
+
+
 
     def _refresh_scrollbars(self):
         """Принудительно запрашивает обновление области прокрутки для показа скроллбара."""
@@ -1631,6 +1669,14 @@ class App(BaseClass):
         except ValueError:
             messagebox.showerror(APP_NAME, self.t("warn_bad_size"))
             return
+
+        # SVG-файлы не имеют встроенного разрешения — нужны оба размера
+        if SVG_AVAILABLE:
+            has_svg = any(os.path.splitext(p)[1].lower() == ".svg" for p in self._files)
+            if has_svg and mode not in (rm[3], rm[4]):  # только smart_crop или custom
+                messagebox.showerror(APP_NAME, self.t("svg_no_size_msg"),
+                                     title=self.t("svg_no_size_title"))
+                return
 
         if self._fmt.get() == "ICO":
             target_w = min(target_w, 256) if target_w else 256
@@ -1788,8 +1834,49 @@ class App(BaseClass):
         res_str  = "??x??"
         size_str = "0 KB"
         try:
-            with Image.open(path) as img:
-                orig_w, orig_h = img.size  # берём ДО ICC
+            # ── SVG: рендерим через resvg_py в PNG-байты, затем открываем как обычное изображение
+            is_svg = os.path.splitext(path)[1].lower() == ".svg"
+            if is_svg and SVG_AVAILABLE:
+                with open(path, "r", encoding="utf-8", errors="replace") as _f:
+                    svg_str = _f.read()
+                # Определяем размер рендера из параметров задачи
+                rm_loc = self._resize_modes_localized()
+                if mode in (rm_loc[3], rm_loc[4]):
+                    # custom / smart_crop — оба размера заданы явно
+                    render_w, render_h = target_w, target_h
+                elif mode == rm_loc[1]:
+                    render_w, render_h = target_w, 0   # resvg масштабирует пропорционально
+                elif mode == rm_loc[2]:
+                    render_w, render_h = 0, target_h
+                else:
+                    render_w, render_h = target_w or 0, target_h or 0
+                png_bytes = _resvg_py.svg_to_bytes(
+                    svg_string=svg_str,
+                    width=render_w if render_w else None,
+                    height=render_h if render_h else None,
+                )
+                img = Image.open(io.BytesIO(png_bytes)).copy()
+                # Принудительно переводим в RGBA чтобы не потерять прозрачность SVG
+                if img.mode not in ("RGBA", "RGB"):
+                    img = img.convert("RGBA")
+                orig_w, orig_h = img.size
+                # После рендера resize не нужен — resvg уже отрисовал нужный размер.
+                # Для smart_crop делаем кроп если соотношение не совпало.
+                if mode == rm_loc[3] and (orig_w, orig_h) != (target_w, target_h):
+                    scale = max(target_w / orig_w, target_h / orig_h)
+                    inter_w = max(1, round(orig_w * scale))
+                    inter_h = max(1, round(orig_h * scale))
+                    img = img.resize((inter_w, inter_h), Image.Resampling.LANCZOS)
+                    left = (inter_w - target_w) // 2
+                    top  = (inter_h - target_h) // 2
+                    img  = img.crop((left, top, left + target_w, top + target_h))
+            else:
+                img = Image.open(path)
+                img.load()  # полностью читаем чтобы можно было закрыть файл
+
+            with img:
+                if not is_svg:
+                    orig_w, orig_h = img.size  # берём ДО ICC (только для растровых)
 
                 # CMYK не поддерживается ImageCms напрямую — конвертируем заранее
                 if img.mode == "CMYK":
@@ -1810,24 +1897,26 @@ class App(BaseClass):
 
                 rm = self._resize_modes_localized()
 
-                if mode == rm[1]:
-                    new_w = target_w
-                    new_h = max(1, round(orig_h * (target_w / orig_w)))
-                    img = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
-                elif mode == rm[2]:
-                    new_h = target_h
-                    new_w = max(1, round(orig_w * (target_h / orig_h)))
-                    img = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
-                elif mode == rm[3]:
-                    scale = max(target_w / orig_w, target_h / orig_h)
-                    inter_w = max(1, round(orig_w * scale))
-                    inter_h = max(1, round(orig_h * scale))
-                    img = img.resize((inter_w, inter_h), Image.Resampling.LANCZOS)
-                    left = (inter_w - target_w) // 2
-                    top = (inter_h - target_h) // 2
-                    img = img.crop((left, top, left + target_w, top + target_h))
-                elif mode == rm[4]:
-                    img = img.resize((target_w, target_h), Image.Resampling.LANCZOS)
+                # Для SVG resize пропускаем — изображение уже отрендерено в нужный размер
+                if not is_svg:
+                    if mode == rm[1]:
+                        new_w = target_w
+                        new_h = max(1, round(orig_h * (target_w / orig_w)))
+                        img = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+                    elif mode == rm[2]:
+                        new_h = target_h
+                        new_w = max(1, round(orig_w * (target_h / orig_h)))
+                        img = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+                    elif mode == rm[3]:
+                        scale = max(target_w / orig_w, target_h / orig_h)
+                        inter_w = max(1, round(orig_w * scale))
+                        inter_h = max(1, round(orig_h * scale))
+                        img = img.resize((inter_w, inter_h), Image.Resampling.LANCZOS)
+                        left = (inter_w - target_w) // 2
+                        top = (inter_h - target_h) // 2
+                        img = img.crop((left, top, left + target_w, top + target_h))
+                    elif mode == rm[4]:
+                        img = img.resize((target_w, target_h), Image.Resampling.LANCZOS)
 
                 if fmt == "JPEG" and img.mode in ("RGBA", "P", "PA", "LA"):
                     img = img.convert("RGBA")
