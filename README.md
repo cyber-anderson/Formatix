@@ -88,10 +88,9 @@ Here are the features planned for upcoming releases:
 - [x] **Correct ICO** — generates a full multi-layered icon pack (16, 24, 32, 48, 64, 128, 256 px) in a single *.ico file.
 - [x] **HEIC support** — ability to convert high-efficiency photos from Apple devices into standard web formats (JPEG, PNG, WEBP).
 - [ ] **File sorting** — ability to sort by name, size, or resolution.
+- [ ] **SVG input support** — converting vector SVG files into raster formats (PNG, JPEG, WEBP and other).
+- [ ] **SVG output support** — converting raster formats (PNG, JPEG, WEBP and others) into vector SVG files.
 - [ ] **Light Theme support** — a clean, high-contrast alternative to the current dark palette.
-- [ ] **SVG support** — converting vector SVG files into raster formats (PNG, JPEG, WEBP).
-- [ ] **Image preview** — quick preview of selected images directly inside the application.
-- [ ] **Side-by-side comparison** — a visual tool to compare the original and converted image quality.
 
 ---
 
