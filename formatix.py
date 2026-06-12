@@ -611,6 +611,7 @@ class App(BaseClass):
         self._loading = True  # блокирует _save_settings во время инициализации
         self._style_ttk()
         self._build()
+        self._bind_sort_commands()
 
         remember = self._settings.get("remember_settings", True)
         if remember:
@@ -818,7 +819,8 @@ class App(BaseClass):
 
         self._lb_src_card, self._tv_src, self._src_panel_lbl = self._make_tree(
             paned, self.t("src_panel"), 0, is_result=False)
-        self._tv_src.bind("<Double-Button-1>", lambda e: self._open_item(self._tv_src, self._files))
+        self._tv_src.bind("<Double-Button-1>", lambda e: self._open_item(self._tv_src, self._files)
+                          if self._tv_src.identify_region(e.x, e.y) != "heading" else None)
 
         # DnD-виджеты создаются только при наличии библиотеки
         self._dz_hint = self._dz_ico = self._dz_lbl = None
@@ -840,15 +842,24 @@ class App(BaseClass):
                                     justify="center", cursor="hand2")
             self._dz_lbl.pack(pady=(4, 0))
 
-            for w in (self._dz_hint, self._dz_ico, self._dz_lbl, self._tv_src):
+            for w in (self._dz_hint, self._dz_ico, self._dz_lbl):
                 w.bind("<Button-1>", lambda e: self._add() if not self._files else None)
+            # Для самого дерева — открываем проводник только если клик НЕ по заголовку
+            def _src_click_dnd(e, t=self._tv_src):
+                if t.identify_region(e.x, e.y) != "heading" and not self._files:
+                    self._add()
+            self._tv_src.bind("<Button-1>", _src_click_dnd)
         else:
             # Без DnD привязываем клик напрямую к дереву
-            self._tv_src.bind("<Button-1>", lambda e: self._add() if not self._files else None)
+            def _src_click_nodnd(e, t=self._tv_src):
+                if t.identify_region(e.x, e.y) != "heading" and not self._files:
+                    self._add()
+            self._tv_src.bind("<Button-1>", _src_click_nodnd)
 
         self._lb_dst_card, self._tv_dst, self._dst_panel_lbl = self._make_tree(
             paned, self.t("dst_panel"), 1, is_result=True)
-        self._tv_dst.bind("<Double-Button-1>", lambda e: self._open_result())
+        self._tv_dst.bind("<Double-Button-1>", lambda e: self._open_result()
+                          if self._tv_dst.identify_region(e.x, e.y) != "heading" else None)
         if HAS_DND:
             self._tv_dst.drop_target_register(DND_FILES)
             self._tv_dst.dnd_bind("<<Drop>>", self._drop)
@@ -1036,14 +1047,14 @@ class App(BaseClass):
             tree.heading("name",   text=self.t("col_filename"), anchor="w")
             tree.heading("res",    text=self.t("col_res"), anchor="center")
             tree.heading("size",   text=self.t("col_size"), anchor="center")
-            tree.column("status", width=55,  minwidth=55,  stretch=False, anchor="center")
+            tree.column("status", width=70,  minwidth=70,  stretch=False, anchor="center")
             tree.column("name",   width=150, minwidth=100, stretch=True,  anchor="w")
-            tree.column("res",    width=95,  minwidth=95,  stretch=False, anchor="center")
+            tree.column("res",    width=105, minwidth=105, stretch=False, anchor="center")
             tree.column("size",   width=105, minwidth=105, stretch=False, anchor="center")
             def _block_status_resize(e, t=tree):
                 if t.identify_region(e.x, e.y) == "separator":
-                    col = t.identify_column(e.x)
-                    if col in ("#1",):  # только правая граница status
+                    col_id = t.identify_column(e.x)
+                    if col_id in ("#1",):  # только правая граница status
                         return "break"
             tree.bind("<Button-1>", _block_status_resize)
         else:
@@ -1053,13 +1064,16 @@ class App(BaseClass):
             tree.heading("res",  text=self.t("col_res"), anchor="center")
             tree.heading("size", text=self.t("col_size"), anchor="center")
             tree.column("name", width=200, minwidth=120, stretch=True,  anchor="w")
-            tree.column("res",  width=95,  minwidth=95,  stretch=False, anchor="center")
+            tree.column("res",  width=105, minwidth=105, stretch=False, anchor="center")
             tree.column("size", width=90,  minwidth=90,  stretch=False, anchor="center")
 
         tree.grid(row=0, column=0, sticky="nsew", padx=(6, 2), pady=6)
         # Сохраняем ссылку на внутренний фрейм через отдельный атрибут экземпляра,
         # чтобы не делать monkey-patch стандартного виджета.
         tree._inner_frame = inner  # noqa: используется в _build для DnD-подсказки
+
+        # Состояние сортировки: {col_id: bool} — True = ascending
+        tree._sort_state = {}
 
         CustomScrollbar(inner, tree)
 
@@ -1068,6 +1082,118 @@ class App(BaseClass):
         tree.bind("<MouseWheel>",
                   lambda e: tree.yview_scroll(int(-1 * (e.delta / 120)), "units"))
         return card, tree, lbl
+
+    def _bind_sort_commands(self):
+        """Привязывает команды сортировки к заголовкам обоих деревьев.
+        Вызывается после _build и после смены языка."""
+        # ── Исходные файлы ────────────────────────────────────────────────────
+        def _sort_src(col_id):
+            asc = not self._tv_src._sort_state.get(col_id, True)
+            self._tv_src._sort_state = {col_id: asc}
+
+            # Собираем пары (значение_для_сортировки, iid, путь_к_файлу)
+            rows = []
+            for iid in self._tv_src.get_children():
+                idx = self._tv_src.index(iid)
+                val = self._tv_src.set(iid, col_id)
+                path = self._files[idx] if idx < len(self._files) else ""
+                rows.append((val, iid, path))
+
+            def _sort_key(item):
+                v = item[0]
+                if col_id == "size":
+                    # Преобразуем "1.2 MB" / "345.6 KB" в байты для корректной сортировки
+                    try:
+                        num, unit = v.split()
+                        num = float(num)
+                        if "MB" in unit:
+                            return num * 1024 * 1024
+                        return num * 1024
+                    except Exception:
+                        return 0
+                elif col_id == "res":
+                    # "1920x1080" → (1920, 1080)
+                    try:
+                        w, h = v.lower().split("x")
+                        return (int(w), int(h))
+                    except Exception:
+                        return (0, 0)
+                return v.lower()
+
+            rows.sort(key=_sort_key, reverse=not asc)
+
+            # Перемещаем строки в дереве и синхронизируем self._files
+            new_files = []
+            for i, (_, iid, path) in enumerate(rows):
+                self._tv_src.move(iid, "", i)
+                new_files.append(path)
+            self._files[:] = new_files
+
+            # Обновляем индикатор сортировки в заголовке
+            arrow = "▲" if asc else "▼"
+            for c in ("name", "res", "size"):
+                base = {"name": self.t("col_filename"),
+                        "res":  self.t("col_res"),
+                        "size": self.t("col_size")}[c]
+                self._tv_src.heading(c, text=base + (" " + arrow if c == col_id else ""))
+
+        for c in ("name", "res", "size"):
+            self._tv_src.heading(c, command=lambda col=c: _sort_src(col))
+
+        # ── Результат ────────────────────────────────────────────────────────
+        def _sort_dst(col_id):
+            asc = not self._tv_dst._sort_state.get(col_id, True)
+            self._tv_dst._sort_state = {col_id: asc}
+
+            rows = []
+            for iid in self._tv_dst.get_children():
+                idx = self._tv_dst.index(iid)
+                val = self._tv_dst.set(iid, col_id)
+                res_entry = self._results[idx] if idx < len(self._results) else (None, False)
+                tags = self._tv_dst.item(iid, "tags")
+                all_vals = self._tv_dst.item(iid, "values")
+                rows.append((val, iid, res_entry, tags, all_vals))
+
+            def _sort_key(item):
+                v = item[0]
+                if col_id == "size":
+                    try:
+                        # Убираем суффикс кэша если есть
+                        v2 = v.split()[0:2]
+                        num, unit = float(v2[0]), v2[1]
+                        if "MB" in unit:
+                            return num * 1024 * 1024
+                        return num * 1024
+                    except Exception:
+                        return 0
+                elif col_id == "res":
+                    try:
+                        w, h = v.lower().split("x")
+                        return (int(w), int(h))
+                    except Exception:
+                        return (0, 0)
+                elif col_id == "status":
+                    return v
+                return v.lower()
+
+            rows.sort(key=_sort_key, reverse=not asc)
+
+            new_results = []
+            for i, (_, iid, res_entry, _, __) in enumerate(rows):
+                self._tv_dst.move(iid, "", i)
+                new_results.append(res_entry)
+            self._results[:] = new_results
+
+            arrow = "▲" if asc else "▼"
+            for c in ("status", "name", "res", "size"):
+                base = {"status": self.t("col_status"),
+                        "name":   self.t("col_filename"),
+                        "res":    self.t("col_res"),
+                        "size":   self.t("col_size")}[c]
+                self._tv_dst.heading(c, text=base + (" " + arrow if c == col_id else ""))
+
+        for c in ("status", "name", "res", "size"):
+            self._tv_dst.heading(c, command=lambda col=c: _sort_dst(col))
 
     def _btn(self, p, text, cmd, accent=False, big=False, dim=False):
         """Создаёт стилизованную кнопку."""
@@ -1408,6 +1534,11 @@ class App(BaseClass):
         self._tv_dst.heading("name",   text=self.t("col_filename"))
         self._tv_dst.heading("res",    text=self.t("col_res"))
         self._tv_dst.heading("size",   text=self.t("col_size"))
+
+        # Переподключаем команды сортировки с обновлёнными строками заголовков
+        self._tv_src._sort_state = {}
+        self._tv_dst._sort_state = {}
+        self._bind_sort_commands()
 
         if not self._files and self._dz_lbl:
             self._dz_lbl.config(text=self.t("drop_hint"))
