@@ -5,7 +5,7 @@
 Formatix Image Converter
 </h1>
 
-Formatix is a fast, lightweight batch image converter for Windows. Convert, resize and optimize WEBP, JPEG, PNG, BMP, TIFF, ICO and HEIF/HEIC images in just a few clicks. It also supports SVG vector files as input, allowing them to be converted into raster formats such as PNG, JPEG, WEBP and more.
+Formatix is a fast, lightweight batch image converter for Windows. Convert, resize and optimize AVIF, WEBP, JPEG, PNG, BMP, TIFF, ICO and HEIF/HEIC images in just a few clicks. It also supports SVG vector files as input, allowing them to be converted into raster formats such as PNG, JPEG, WEBP and more.
 
 No file limits, no internet connection. 100% offline processing means your images are never uploaded, shared, or sent anywhere — everything stays on your computer.
 
@@ -16,7 +16,7 @@ https://github.com/user-attachments/assets/e02e780b-f78b-439b-9979-90f6eafb6b10
 ## Features
 
 - **Batch conversion** — convert hundreds of images in a single operation
-- **7 output formats** — WEBP, JPEG, HEIC/HEIF, PNG, BMP, TIFF, ICO
+- **8 output formats** — AVIF, WEBP, JPEG, HEIC/HEIF, PNG, BMP, TIFF, ICO
 - **Multi-threaded processing** — converts multiple images simultaneously for faster batch operations
 - **5 resize modes** — proportional scaling, smart crop and custom dimensions
 - **Automatic color profile processing** — ICC-based color space conversion using Pillow ImageCms for improved color accuracy
