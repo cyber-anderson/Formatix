@@ -61,7 +61,7 @@ python formatix.py
 
 ## Supported Input Formats
 
-`.jpg` `.jpeg` `.png` `.webp` `.bmp` `.tiff` `.tif` `.gif` `.ico` `.heic` `.heif` `.svg`
+`.jpg` `.jpeg` `.png` `.webp` `.bmp` `.tiff` `.tif` `.gif` `.ico` `.heic` `.heif` `.svg` `.avif`
 
 ---
 
