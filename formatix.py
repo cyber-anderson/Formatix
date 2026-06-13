@@ -53,6 +53,24 @@ try:
 except Exception:
     pass
 
+AVIF_AVAILABLE = False
+try:
+    # Pillow ≥ 10 поддерживает AVIF нативно если установлен libavif.
+    # pillow-avif-plugin расширяет поддержку для старых версий Pillow.
+    try:
+        import pillow_avif  # noqa: F401 — регистрирует кодек автоматически при импорте
+    except ImportError:
+        pass
+    # Проверяем реальную возможность сохранения: создаём 1×1 AVIF в памяти
+    import io as _io
+    _test = Image.new("RGB", (1, 1))
+    _buf  = _io.BytesIO()
+    _test.save(_buf, "AVIF", quality=50)
+    AVIF_AVAILABLE = True
+    del _test, _buf, _io
+except Exception:
+    pass
+
 SVG_AVAILABLE = False
 try:
     import resvg_py as _resvg_py
@@ -75,7 +93,7 @@ FG3     = "#45475a"
 BORDER  = "#313244"
 
 APP_NAME = "Formatix Image Converter"
-VERSION  = "1.10.1"
+VERSION  = "1.10.2"
 
 # Константы анимации сердечка
 _HEART_BEAT1_MS   = 120
@@ -84,8 +102,8 @@ _HEART_BEAT3_MS   = 370
 _HEART_MIN_IDLE   = 1800
 _HEART_MAX_IDLE   = 2600
 
-FORMATS = ["WEBP", "JPEG"] + (["HEIC"] if HEIF_AVAILABLE else []) + ["PNG", "BMP", "TIFF", "ICO"]
-IMG_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tiff", ".tif", ".gif", ".ico"} | ({".heic", ".heif"} if HEIF_AVAILABLE else set()) | ({".svg"} if SVG_AVAILABLE else set())
+FORMATS = (["AVIF"] if AVIF_AVAILABLE else []) + ["WEBP", "JPEG"] + (["HEIC"] if HEIF_AVAILABLE else []) + ["PNG", "BMP", "TIFF", "ICO"]
+IMG_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tiff", ".tif", ".gif", ".ico"} | ({".avif"} if AVIF_AVAILABLE else set()) | ({".heic", ".heif"} if HEIF_AVAILABLE else set()) | ({".svg"} if SVG_AVAILABLE else set())
 
 # ── LOCALIZATION ───────────────────────────────────────────────────────────────
 LANGUAGES = {"en": "English", "ru": "Русский", "uk": "Українська", "de": "Deutsch", "zh": "中文"}
@@ -1328,7 +1346,7 @@ class App(BaseClass):
         fmt     = self._fmt.get()
         prev    = getattr(self, "_prev_fmt", None)
 
-        quality_matters = fmt in ("JPEG", "WEBP", "HEIC")
+        quality_matters = fmt in ("JPEG", "WEBP", "HEIC", "AVIF")
         if hasattr(self, "_qual_slider"):
             self._qual_slider.set_enabled(quality_matters)
 
@@ -1975,7 +1993,7 @@ class App(BaseClass):
                     bg_img.paste(rgba, mask=rgba.split()[3])
                     img = bg_img
 
-                kw = {"quality": quality} if fmt in ("JPEG", "WEBP", "HEIC") else {}
+                kw = {"quality": quality} if fmt in ("JPEG", "WEBP", "HEIC", "AVIF") else {}
 
                 if fmt == "ICO":
                     if img.mode not in ("RGBA", "RGB"):
@@ -1989,6 +2007,20 @@ class App(BaseClass):
                         ico_sizes = [s for s in std_sizes if s < max_side]
                         ico_sizes.append(max_side)
                         kw["sizes"] = sorted([(s, s) for s in set(ico_sizes)])
+
+                # AVIF: гарантируем совместимый цветовой режим и передаём ICC-профиль
+                if fmt == "AVIF":
+                    if img.mode not in ("RGB", "RGBA"):
+                        # LA, P, PA → RGBA чтобы сохранить прозрачность если она есть
+                        if img.mode in ("LA", "PA"):
+                            img = img.convert("RGBA")
+                        elif img.mode == "P" and "transparency" in img.info:
+                            img = img.convert("RGBA")
+                        else:
+                            img = img.convert("RGB")
+                    # Встраиваем sRGB ICC-профиль — AVIF декодеры ожидают его явно
+                    srgb_profile = ImageCms.createProfile("sRGB")
+                    kw["icc_profile"] = ImageCms.ImageCmsProfile(srgb_profile).tobytes()
 
                 tmp_path = out_path + ".tmp"
                 save_fmt = "HEIF" if fmt == "HEIC" else fmt
