@@ -338,17 +338,57 @@ def get_file_size_str(path):
         return "?? KB"
 
 
+def get_svg_resolution_pure(path):
+    """Быстро и безопасно находит размеры SVG через регулярные выражения."""
+    import re
+    try:
+        # Читаем только самое начало файла (этого хватит для тега <svg>)
+        with open(path, "rb") as f:
+            raw_bytes = f.read(8192)
+        
+        text = raw_bytes.decode("utf-8", errors="ignore").strip()
+        
+        # 1. Ищем тег <svg ...> целиком
+        svg_tag_match = re.search(r"<svg([^>]+)>", text, re.IGNORECASE)
+        if not svg_tag_match:
+            return None, None
+            
+        svg_body = svg_tag_match.group(1)
+        
+        # 2. Пробуем вытащить явные width и height
+        w_match = re.search(r'width=["\']\s*([\d.]+)(?:px|pt|em|cm|mm)?\s*["\']', svg_body)
+        h_match = re.search(r'height=["\']\s*([\d.]+)(?:px|pt|em|cm|mm)?\s*["\']', svg_body)
+        
+        if w_match and h_match:
+            return int(float(w_match.group(1))), int(float(h_match.group(1)))
+            
+        # 3. Если их нет, ищем viewBox="x y width height"
+        vb_match = re.search(r'viewBox=["\']\s*(-?[\d.]+)\s+(-?[\d.]+)\s+([\d.]+)\s+([\d.]+)\s*["\']', svg_body)
+        if vb_match:
+            return int(float(vb_match.group(3))), int(float(vb_match.group(4)))
+            
+    except Exception as e:
+        print(f"Formatix SVG parse error: {e}")
+        
+    return None, None
+
+
 def get_image_res_str(path):
     """Возвращает разрешение изображения в виде строки 'WxH'."""
-    if os.path.splitext(path)[1].lower() == ".svg":
-        return "SVG"
+    ext = os.path.splitext(path)[1].lower()
+    
+    if ext == ".svg":
+        w, h = get_svg_resolution_pure(path)
+        if w and h:
+            return f"{w}x{h}"
+        return "SVG"  # Запасной вариант, если размеров внутри вообще нет
+        
     try:
         with Image.open(path) as img:
             w, h = img.size
             return f"{w}x{h}"
     except Exception:
         return "??x??"
-
 
 def resource_path(relative_path):
     """Получает абсолютный путь к ресурсам, работает для разработки и для PyInstaller."""
@@ -1232,9 +1272,9 @@ class App(BaseClass):
         """Обновляет состояние полей ввода размера при смене режима."""
         key = self._current_resize_mode_key()
 
-        # Если пользователь вручную выбрал несовместимый с SVG режим — предупредить и откатить
-        if event is not None and SVG_AVAILABLE and key not in ("smart_crop", "custom"):
-            if any(os.path.splitext(p)[1].lower() == ".svg" for p in self._files):
+        # Если пользователь вручную выбрал режим, а у нас есть SVG без размеров — откатить
+        if event is not None and key not in ("smart_crop", "custom"):
+            if self._has_svg_without_size():
                 messagebox.showerror(self.t("svg_no_size_title"), self.t("svg_no_size_msg"))
                 self._resize_mode.set(self._key_to_localized_mode("custom"))
                 key = "custom"
@@ -1489,6 +1529,17 @@ class App(BaseClass):
         self._clbl.config(text="")
         self._upd()
 
+    def _has_svg_without_size(self):
+        """Проверяет, есть ли в списке SVG-файлы, у которых не удалось определить разрешение."""
+        if not SVG_AVAILABLE:
+            return False
+        for p in self._files:
+            if os.path.splitext(p)[1].lower() == ".svg":
+                w, h = get_svg_resolution_pure(p)
+                if not w or not h:
+                    return True # Нашли проблемный файл
+        return False
+
     def _upd(self):
         """Обновляет счётчик файлов и метку drop-зоны."""
         n = len(self._files)
@@ -1523,11 +1574,11 @@ class App(BaseClass):
         else:
             self._lbl_size_dst.config(text=f"{self.t('became')} 0.0 KB", fg=FG3)
 
-        # Если в списке есть SVG-файлы — автоматически переключаем на Custom
-        if SVG_AVAILABLE and any(os.path.splitext(p)[1].lower() == ".svg" for p in self._files):
-            if self._current_resize_mode_key() != "custom":
+        # Если в списке есть SVG-файлы БЕЗ размера — автоматически переключаем на Custom
+        if self._has_svg_without_size():
+            if self._current_resize_mode_key() not in ("smart_crop", "custom"):
                 self._resize_mode.set(self._key_to_localized_mode("custom"))
-                self._on_resize_mode_changed()  # event=None → защита не срабатывает
+                self._on_resize_mode_changed()
 
         # Отложенное обновление скроллбара, чтобы Treeview успел отрисовать новые строки
         self.after(50, self._refresh_scrollbars)
@@ -1658,10 +1709,9 @@ class App(BaseClass):
             messagebox.showerror(APP_NAME, self.t("warn_bad_size"))
             return
 
-        # SVG-файлы не имеют встроенного разрешения — нужны оба размера
-        if SVG_AVAILABLE:
-            has_svg = any(os.path.splitext(p)[1].lower() == ".svg" for p in self._files)
-            if has_svg and mode_key not in ("smart_crop", "custom"):
+        # Если есть SVG без встроенного разрешения — запрещаем конвертацию без явных размеров
+        if mode_key not in ("smart_crop", "custom"):
+            if self._has_svg_without_size():
                 messagebox.showerror(APP_NAME, self.t("svg_no_size_msg"),
                                      title=self.t("svg_no_size_title"))
                 return
@@ -1839,7 +1889,6 @@ class App(BaseClass):
                 else:
                     svg_str = _raw.decode("utf-8", errors="replace")
                 # Определяем размер рендера из параметров задачи
-                # Используем resize_key (языконезависимый) вместо rm_loc[N]
                 if resize_key in ("smart_crop", "custom"):
                     render_w, render_h = target_w, target_h
                 elif resize_key == "prop_width":
@@ -1847,7 +1896,9 @@ class App(BaseClass):
                 elif resize_key == "prop_height":
                     render_w, render_h = 0, target_h
                 else:
-                    render_w, render_h = target_w or 0, target_h or 0
+                    # Для режима "Без изменений" вытаскиваем оригинальные пиксели из SVG
+                    orig_w, orig_h = get_svg_resolution_pure(path)
+                    render_w, render_h = orig_w or 0, orig_h or 0
                 png_bytes = _resvg_py.svg_to_bytes(
                     svg_string=svg_str,
                     width=render_w if render_w else None,
@@ -1868,6 +1919,10 @@ class App(BaseClass):
                     left = (inter_w - target_w) // 2
                     top  = (inter_h - target_h) // 2
                     img  = img.crop((left, top, left + target_w, top + target_h))
+                # Для режима "Пользовательский" принудительно растягиваем/сплющиваем
+                # картинку до точных цифр, игнорируя сохранение пропорций.
+                elif resize_key == "custom" and (orig_w, orig_h) != (target_w, target_h):
+                    img = img.resize((target_w, target_h), Image.Resampling.LANCZOS)
             else:
                 img = Image.open(path)
                 img.load()  # полностью читаем чтобы можно было закрыть файл
