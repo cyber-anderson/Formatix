@@ -2241,7 +2241,7 @@ class App(BaseClass):
         cl.bind("<Leave>",    lambda e: cl.config(fg=FG2))
 
     def _donate(self):
-        win = tk.Toplevel(self) # У вас в коде используется просто self, а не self._root
+        win = tk.Toplevel(self)
         win.title(self.t("donate_title"))
         # Уменьшаем высоту окна, так как полей с кошельками больше нет
         win.geometry("550x250")
@@ -2280,7 +2280,7 @@ class App(BaseClass):
                       font=("Segoe UI", 10), bg=BG, fg=FG2, cursor="hand2")
         cl.pack(pady=(15, 10))
         cl.bind("<Button-1>", lambda e: win.destroy())
-        cl.bind("<Enter>",    lambda e: cl.config(fg=FG)) # В вашем оригинальном коде ховер был FG
+        cl.bind("<Enter>",    lambda e: cl.config(fg=FG))
         cl.bind("<Leave>",    lambda e: cl.config(fg=FG2))
 
 
