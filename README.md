@@ -66,7 +66,6 @@ python formatix.py
 ---
 
 ## Output Formats
-<img width="445" height="75" alt="formats" src="https://github.com/user-attachments/assets/388f9a1e-07f4-49a5-ab30-bfdfd2d388c8" />
 
 | Format | Type & Quality | Notes |
 | :--- | :--- | :--- |
