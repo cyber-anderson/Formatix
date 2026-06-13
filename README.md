@@ -69,7 +69,7 @@ python formatix.py
 
 | Format | Type & Quality | Notes |
 | :--- | :--- | :--- |
-| **AVIF** | Lossy (Adjustable) | Next-generation format; offers superior compression with high quality and HDR support |
+| **AVIF** | Lossy (Adjustable) | Next-generation format; offers superior compression with high quality |
 | **WEBP** | Lossy (Adjustable) | Best size-to-quality ratio for web use |
 | **JPEG** | Lossy (Adjustable) | Standard format; RGBA transparency auto-converted to RGB |
 | **HEIC** | Lossy (Adjustable) | High Efficiency Image Format (HEIF/HEIC), commonly used by Apple devices |
