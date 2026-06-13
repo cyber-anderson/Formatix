@@ -1,6 +1,6 @@
 <h1 align="center">
 <sub>
-<img src=".github/formatix.svg" height="38" width="38" alt="Formatix Image Converter">
+<img src="icon.ico" height="38" width="38" alt="Formatix Image Converter">
 </sub>
 Formatix Image Converter
 </h1>
