@@ -33,7 +33,7 @@ https://github.com/user-attachments/assets/e02e780b-f78b-439b-9979-90f6eafb6b10
 
 * **OS:** Windows (if you are using the pre-compiled `.exe` file)
 * **Python:** 3.10+ *(only required if running from source)*
-* **Dependencies:** `Pillow`, `pillow-heif`, `tkinterdnd2` *(only required if running from source)*
+* **Dependencies:** `Pillow`, `pillow-heif`, `tkinterdnd2`, `resvg-py` *(only required if running from source)*
 
 ## Running
 
@@ -45,7 +45,7 @@ To run the script from the source code, you need **Python 3.10+** and the necess
 
 1. Install the required dependencies:
 ```bash
-pip install Pillow pillow-heif tkinterdnd2
+pip install Pillow pillow-heif tkinterdnd2 resvg-py
 ```
 2. Run the application:
 ```bash
