@@ -84,14 +84,6 @@ _HEART_BEAT3_MS   = 370
 _HEART_MIN_IDLE   = 1800
 _HEART_MAX_IDLE   = 2600
 
-CRYPTO_WALLETS = [
-    ("Bitcoin",          "bc1q8ajkfe5zg26ugwthjlcjqtn06dveh3kehted90"),
-    ("Ethereum",         "0x08bDC7b9d6f400260973B73063Eb81c27A10f1e3"),
-    ("USDT (TRC20)",     "TU2RZTdh8p2fEt2hnKrUTAZNj8trfW6hYE"),
-    ("Solana",           "4VAPnL62M7o8SwrYHhE8ZSpHqDM8qvkqCjL4EKaAFj58"),
-    ("TON",              "UQBPQAbGEsyCGNEZAXZoUBOcaTYglXl9FAZSu-7gQdxE-k7O"),
-]
-
 FORMATS = ["WEBP", "JPEG"] + (["HEIC"] if HEIF_AVAILABLE else []) + ["PNG", "BMP", "TIFF", "ICO"]
 IMG_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tiff", ".tif", ".gif", ".ico"} | ({".heic", ".heif"} if HEIF_AVAILABLE else set()) | ({".svg"} if SVG_AVAILABLE else set())
 
@@ -128,6 +120,7 @@ STRINGS = {
         "donate_desc": "If the app saved your time, you can support the\nauthor with crypto",
         "donate_copied": "Address copied!",
         "donate_close": "Close",
+        "donate_btn": "Open page with wallets",
         "auto": "Auto",
         "cache_tag": " (cache)",
         "resize_custom": "Custom",
@@ -168,6 +161,7 @@ STRINGS = {
         "donate_desc": "Если программа сэкономила ваше время, вы можете\nподдержать автора криптой",
         "donate_copied": "Адрес успешно скопирован!",
         "donate_close": "Закрыть",
+        "donate_btn": "Открыть страницу с кошельками",
         "auto": "Авто",
         "cache_tag": " (кэш)",
         "resize_custom": "Пользовательский",
@@ -209,6 +203,7 @@ STRINGS = {
         "donate_desc": "Якщо програма заощадила ваш час, ви можете\nпідтримати автора криптою",
         "donate_copied": "Адресу скопійовано!",
         "donate_close": "Закрити",
+        "donate_btn": "Відкрити сторінку з гаманцями",
         "auto": "Авто",
         "cache_tag": " (кеш)",
         "resize_custom": "Користувацький",
@@ -2246,59 +2241,46 @@ class App(BaseClass):
         cl.bind("<Leave>",    lambda e: cl.config(fg=FG2))
 
     def _donate(self):
-        """Открывает модальное окно с криптоадресами для доната."""
-        win = tk.Toplevel(self)
+        win = tk.Toplevel(self) # У вас в коде используется просто self, а не self._root
         win.title(self.t("donate_title"))
-        win.resizable(False, False)
+        # Уменьшаем высоту окна, так как полей с кошельками больше нет
+        win.geometry("550x250")
         win.configure(bg=BG)
         win.transient(self)
         win.grab_set()
 
-        try:
-            win.iconbitmap(resource_path("icon.ico"))
-        except Exception:
-            pass
-
-        ww, wh = 555, 500
         win.update_idletasks()
-        sw, sh = win.winfo_screenwidth(), win.winfo_screenheight()
-        win.geometry(f"{ww}x{wh}+{(sw - ww) // 2}+{(sh - wh) // 2}")
+        x = self.winfo_x() + (self.winfo_width() - 550) // 2
+        y = self.winfo_y() + (self.winfo_height() - 250) // 2
+        win.geometry(f"+{x}+{y}")
 
-        tk.Label(win, text="♥", font=("Segoe UI", 28), bg=BG, fg=HEART_RED).pack(pady=(16, 2))
-        tk.Label(win, text=self.t("donate_sub"),
-                 font=("Segoe UI", 12, "bold"), bg=BG, fg=FG).pack()
-        tk.Label(win, text=self.t("donate_desc"),
-                 font=("Segoe UI", 10), bg=BG, fg=FG2, justify="center").pack(pady=(5, 12))
+        tk.Label(win, text=self.t("donate_title"), font=("Segoe UI", 14, "bold"),
+                 bg=BG, fg=ACCENT).pack(pady=(20, 5))
 
-        for lbl, addr in CRYPTO_WALLETS:
-            row = tk.Frame(win, bg=CARD,
-                           highlightthickness=1, highlightbackground=BORDER, padx=14, pady=8)
-            row.pack(fill="x", padx=24, pady=4)
-            tk.Label(row, text=lbl, font=("Segoe UI", 10, "bold"),
-                     bg=CARD, fg=ACCENT, width=12, anchor="w").pack(side="left")
-            e = tk.Entry(row, font=("Consolas", 10), bg=CARD, fg=FG, relief="flat", bd=0,
-                         readonlybackground=CARD, insertbackground=CARD, width=50)
-            e.insert(0, addr)
-            e.config(state="readonly")
-            e.pack(side="left", padx=5)
+        tk.Label(win, text=self.t("donate_desc"), font=("Segoe UI", 10),
+                 bg=BG, fg=FG, justify="center").pack(pady=15)
 
-            def _cp(a=addr):
-                win.clipboard_clear()
-                win.clipboard_append(a)
-                win.update()
-                messagebox.showinfo(APP_NAME, self.t("donate_copied"), parent=win)
+        def _open_wallets():
+            webbrowser.open("https://github.com/cyber-anderson/Formatix#-support-the-author")
+            win.destroy()  # Окно закроется после открытия браузера (можно убрать, если не нужно)
 
-            cp = tk.Label(row, text="⎘", font=("Segoe UI", 14), bg=CARD, fg=FG2, cursor="hand2")
-            cp.pack(side="right")
-            cp.bind("<Button-1>", lambda e, f=_cp: f())
-            cp.bind("<Enter>",    lambda e, w=cp: w.config(fg=ACCENT))
-            cp.bind("<Leave>",    lambda e, w=cp: w.config(fg=FG2))
+        # Новая кнопка в стиле кнопки "Конвертировать" (как в _btn)
+        btn = tk.Button(win, text=self.t("donate_btn"),
+                        font=("Segoe UI", 11, "bold"),
+                        bg=ACCENT, fg="#fff", activebackground=ACCENT2,
+                        activeforeground="#fff", relief="flat", padx=20, pady=9,
+                        command=_open_wallets, cursor="hand2")
+        
+        # Эффекты наведения для кнопки как в остальном интерфейсе
+        btn.bind("<Enter>", lambda e, w=btn: w.config(bg=ACCENT2, fg="#fff"))
+        btn.bind("<Leave>", lambda e, w=btn: w.config(bg=ACCENT, fg="#fff"))
+        btn.pack(pady=10)
 
         cl = tk.Label(win, text=self.t("donate_close"),
                       font=("Segoe UI", 10), bg=BG, fg=FG2, cursor="hand2")
-        cl.pack(pady=(16, 0))
+        cl.pack(pady=(15, 10))
         cl.bind("<Button-1>", lambda e: win.destroy())
-        cl.bind("<Enter>",    lambda e: cl.config(fg=FG))
+        cl.bind("<Enter>",    lambda e: cl.config(fg=FG)) # В вашем оригинальном коде ховер был FG
         cl.bind("<Leave>",    lambda e: cl.config(fg=FG2))
 
 
