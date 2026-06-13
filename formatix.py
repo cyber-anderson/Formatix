@@ -221,7 +221,7 @@ STRINGS = {
         "donate_desc": "Якщо програма заощадила ваш час, ви можете\nпідтримати автора криптою:",
         "donate_copied": "Адресу скопійовано!",
         "donate_close": "Закрити",
-        "donate_btn:": "Відкрити сторінку з гаманцями",
+        "donate_btn": "Відкрити сторінку з гаманцями",
         "auto": "Авто",
         "cache_tag": " (кеш)",
         "resize_custom": "Користувацький",
@@ -1513,6 +1513,7 @@ class App(BaseClass):
         """Открывает диалог добавления файлов."""
         files = filedialog.askopenfilenames(
             filetypes=[("Images", "*.jpg *.jpeg *.png *.webp *.bmp *.tiff *.gif *.ico"
+                        + (" *.avif" if AVIF_AVAILABLE else "")
                         + (" *.heic *.heif" if HEIF_AVAILABLE else "")
                         + (" *.svg" if SVG_AVAILABLE else "")),
                        ("All", "*.*")])
