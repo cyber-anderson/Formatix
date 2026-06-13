@@ -2246,19 +2246,20 @@ class App(BaseClass):
         win = tk.Toplevel(self)
         win.title(self.t("donate_title"))
         # Уменьшаем высоту окна, так как полей с кошельками больше нет
-        win.geometry("550x250")
+        win.geometry("500x300")
         win.configure(bg=BG)
         win.transient(self)
         win.grab_set()
 
         win.update_idletasks()
-        x = self.winfo_x() + (self.winfo_width() - 550) // 2
-        y = self.winfo_y() + (self.winfo_height() - 250) // 2
+        x = self.winfo_x() + (self.winfo_width() - 500) // 2
+        y = self.winfo_y() + (self.winfo_height() - 300) // 2
         win.geometry(f"+{x}+{y}")
-
-        tk.Label(win, text=self.t("donate_title"), font=("Segoe UI", 14, "bold"),
-                 bg=BG, fg=ACCENT).pack(pady=(20, 5))
-
+        
+        tk.Label(win, text="♥", font=("Segoe UI", 28), bg=BG, fg=HEART_RED).pack(pady=(16, 2))
+        tk.Label(win, text=self.t("donate_sub"),
+                 font=("Segoe UI", 12, "bold"), bg=BG, fg=FG).pack()
+ 
         tk.Label(win, text=self.t("donate_desc"), font=("Segoe UI", 10),
                  bg=BG, fg=FG, justify="center").pack(pady=15)
 
@@ -2284,7 +2285,6 @@ class App(BaseClass):
         cl.bind("<Button-1>", lambda e: win.destroy())
         cl.bind("<Enter>",    lambda e: cl.config(fg=FG))
         cl.bind("<Leave>",    lambda e: cl.config(fg=FG2))
-
 
 if __name__ == "__main__":
     App().mainloop()
