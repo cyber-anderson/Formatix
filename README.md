@@ -4,9 +4,6 @@
 </sub>
 Formatix Image Converter
 </h1>
-<h1 align="center">
-<img width="445" height="75" alt="formats" src="https://github.com/user-attachments/assets/388f9a1e-07f4-49a5-ab30-bfdfd2d388c8" />
-</h1>
 
 Formatix is a fast, lightweight batch image converter for Windows. Convert, resize and optimize WEBP, JPEG, PNG, BMP, TIFF, ICO and HEIF/HEIC images in just a few clicks. It also supports SVG vector files as input, allowing them to be converted into raster formats such as PNG, JPEG, WEBP and more.
 
@@ -69,9 +66,11 @@ python formatix.py
 ---
 
 ## Output Formats
+<img width="445" height="75" alt="formats" src="https://github.com/user-attachments/assets/388f9a1e-07f4-49a5-ab30-bfdfd2d388c8" />
 
 | Format | Type & Quality | Notes |
 | :--- | :--- | :--- |
+| **AVIF** | Lossy (Adjustable) | Next-generation format; offers superior compression with high quality and HDR support |
 | **WEBP** | Lossy (Adjustable) | Best size-to-quality ratio for web use |
 | **JPEG** | Lossy (Adjustable) | Standard format; RGBA transparency auto-converted to RGB |
 | **HEIC** | Lossy (Adjustable) | High Efficiency Image Format (HEIF/HEIC), commonly used by Apple devices |
