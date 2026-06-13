@@ -93,7 +93,7 @@ FG3     = "#45475a"
 BORDER  = "#313244"
 
 APP_NAME = "Formatix Image Converter"
-VERSION  = "1.10.2"
+VERSION  = "1.11.0"
 
 # Константы анимации сердечка
 _HEART_BEAT1_MS   = 120
