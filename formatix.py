@@ -27,6 +27,7 @@ import queue
 import random
 import json
 import ctypes
+import subprocess
 from PIL import Image
 from PIL import ImageCms
 import io
@@ -136,7 +137,7 @@ STRINGS = {
         "ico_too_large_ok": "OK",
         "settings_remember": "Remember settings",
         "svg_no_size_title": "SVG: size required",
-        "svg_no_size_msg": "SVG files have no fixed resolution.\nPlease set width and height in \u201cCustom\u201d mode before converting.",
+        "svg_no_size_msg": "SVG files have no fixed resolution.\nPlease set width and height in “Custom” mode before converting.",
     },
     "ru": {
         "add": "+ Добавить", "clear": "✕ Очистить",
@@ -257,7 +258,7 @@ STRINGS = {
         "ico_too_large_ok": "OK",
         "settings_remember": "Einstellungen speichern",
         "svg_no_size_title": "SVG: Größe erforderlich",
-        "svg_no_size_msg": "SVG-Dateien haben keine feste Auflösung.\nBitte geben Sie Breite und Höhe im Modus \u201eBenutzerdefiniert\u201c vor der Konvertierung ein.",
+        "svg_no_size_msg": "SVG-Dateien haben keine feste Auflösung.\nBitte geben Sie Breite und Höhe im Modus „Benutzerdefiniert“ vor der Konvertierung ein.",
     },
     "zh": {
         "add": "+ 添加", "clear": "✕ 清空",
@@ -297,7 +298,7 @@ STRINGS = {
         "ico_too_large_ok": "确定",
         "settings_remember": "记住设置",
         "svg_no_size_title": "SVG：需要指定尺寸",
-        "svg_no_size_msg": "SVG \u6587\u4ef6\u6ca1\u6709\u56fa\u5b9a\u5206\u8fa8\u7387\u3002\n\u8bf7\u5728\u300c\u81ea\u5b9a\u4e49\u300d\u6a21\u5f0f\u4e0b\u8bbe\u7f6e\u5bbd\u5ea6\u548c\u9ad8\u5ea6\u540e\u518d\u8fdb\u884c\u8f6c\u6362\u3002",
+        "svg_no_size_msg": "SVG 文件没有固定分辨率。\n请在「自定义」模式下设置宽度和高度后再进行转换。",
     },
 }
 
@@ -364,10 +365,8 @@ def open_path(path):
         if sys.platform == "win32":
             os.startfile(path)
         elif sys.platform == "darwin":
-            import subprocess
             subprocess.Popen(["open", path])
         else:
-            import subprocess
             subprocess.Popen(["xdg-open", path])
     except Exception:
         pass
@@ -410,11 +409,10 @@ def detect_system_lang():
         # ── 2. Windows: реестр ────────────────────────────────────────────────
         try:
             import winreg
-            key = winreg.OpenKey(
-                winreg.HKEY_CURRENT_USER,
-                r"Control Panel\International")
-            locale_val, _ = winreg.QueryValueEx(key, "LocaleName")
-            winreg.CloseKey(key)
+            with winreg.OpenKey(
+                    winreg.HKEY_CURRENT_USER,
+                    r"Control Panel\International") as key:
+                locale_val, _ = winreg.QueryValueEx(key, "LocaleName")
             # LocaleName вида "ru-RU", "uk-UA", "de-DE", "zh-CN"
             prefix = locale_val.lower().split("-")[0]
             if prefix in _LANG_MAP:
@@ -501,12 +499,6 @@ class FancySlider(tk.Frame):
         self.to     = to
 
         # Стиль конфигурируется один раз снаружи (_style_ttk в App)
-        s = ttk.Style()
-        s.configure("FS.Horizontal.TScale", troughcolor=BG3,
-                    background=BG2, sliderlength=26, sliderrelief="flat")
-        s.map("FS.Horizontal.TScale",
-              background=[("active", ACCENT2), ("", ACCENT)])
-
         self.scale = ttk.Scale(self, from_=from_, to=to, orient="horizontal",
                                variable=self._var, style="FS.Horizontal.TScale",
                                length=width - 50, command=self._on_scale_move)
@@ -537,27 +529,27 @@ class FancySlider(tk.Frame):
             self.entry_var.set(str(self._var.get()))
         # Если фокус в поле, обновляем ползунок (чтобы клавиатура работала)
     def _on_entry_write(self, *args):
-        if self.focus_get() == self.entry:
-            val_str = self.entry_var.get()
-
-            if val_str.isdigit():
-                val = int(val_str)
-
-                if val > self.to:
-                    val = self.to
-                    self._var.set(val)
-
-                    if val_str != str(val):
-                        self.entry_var.set(str(val))
-                        return
-
-                elif val < self.from_:
-                    val = self.from_
-
-                self._var.set(val)
-
-            elif val_str == "":
+        if self.focus_get() != self.entry:
+            return
+        val_str = self.entry_var.get()
+        if not val_str.isdigit():
+            if val_str == "":
                 self._var.set(self.from_)
+            return
+        val = int(val_str)
+        # Ограничиваем диапазон и корректируем поле если вышло за границы
+        if val > self.to:
+            # Откладываем обновление entry_var через after чтобы избежать
+            # рекурсии внутри trace_add("write")
+            self._var.set(self.to)
+            self.entry.after(0, lambda: self.entry_var.set(str(self.to)))
+            return
+        if val < self.from_ and len(val_str) >= len(str(self.from_)):
+            # Корректируем только если введено достаточно цифр (не в процессе набора)
+            self._var.set(self.from_)
+            self.entry.after(0, lambda: self.entry_var.set(str(self.from_)))
+            return
+        self._var.set(val)
 
     def set_enabled(self, enabled: bool):
         """Включает или отключает слайдер визуально."""
@@ -920,8 +912,6 @@ class App(BaseClass):
         # Каждый блок: лейбл сверху + виджет снизу. Выравнивание — anchor="n"
         ctrl_row = tk.Frame(bot, bg=BG2)
         ctrl_row.pack(fill="x")
-        # Псевдоним для совместимости со ссылками ниже по коду
-        ctrl_grid = ctrl_row
 
         def _ctrl_block(parent, label_text):
             """Создаёт блок: фрейм с лейблом сверху, возвращает (block, widget_frame)."""
@@ -1161,6 +1151,8 @@ class App(BaseClass):
 
         # ── Результат ────────────────────────────────────────────────────────
         def _sort_dst(col_id):
+            if self._running:
+                return  # не сортируем пока идёт конвертация — индексы могут съехать
             asc = not self._tv_dst._sort_state.get(col_id, True)
             self._tv_dst._sort_state = {col_id: asc}
 
@@ -1238,22 +1230,21 @@ class App(BaseClass):
 
     def _on_resize_mode_changed(self, event=None):
         """Обновляет состояние полей ввода размера при смене режима."""
-        mode = self._resize_mode.get()
-        rm   = self._resize_modes_localized()
+        key = self._current_resize_mode_key()
 
         # Если пользователь вручную выбрал несовместимый с SVG режим — предупредить и откатить
-        if event is not None and SVG_AVAILABLE and mode not in (rm[3], rm[4]):
+        if event is not None and SVG_AVAILABLE and key not in ("smart_crop", "custom"):
             if any(os.path.splitext(p)[1].lower() == ".svg" for p in self._files):
                 messagebox.showerror(self.t("svg_no_size_title"), self.t("svg_no_size_msg"))
-                self._resize_mode.set(rm[4])  # откатываем на Custom
-                mode = rm[4]
+                self._resize_mode.set(self._key_to_localized_mode("custom"))
+                key = "custom"
 
         if not hasattr(self, "_last_width"):
             self._last_width  = ""
         if not hasattr(self, "_last_height"):
             self._last_height = ""
 
-        if mode == rm[0]:  # Без изменений
+        if key == "no_change":
             self._last_width  = self._w_val.get() if self._w_val.get().isdigit() else self._last_width
             self._last_height = self._h_val.get() if self._h_val.get().isdigit() else self._last_height
             self._w_val.set("—")
@@ -1261,7 +1252,7 @@ class App(BaseClass):
             self._e_width.config(state="disabled",  fg=FG2, highlightbackground=BORDER)
             self._e_height.config(state="disabled", fg=FG2, highlightbackground=BORDER)
 
-        elif mode == rm[1]:  # Пропорционально по ширине
+        elif key == "prop_width":
             if self._is_auto_or_dash(self._w_val.get()):
                 self._w_val.set(self._last_width)
             self._last_height = self._h_val.get() if self._h_val.get().isdigit() else self._last_height
@@ -1269,7 +1260,7 @@ class App(BaseClass):
             self._e_width.config(state="normal",    fg=FG,  highlightbackground=ACCENT)
             self._e_height.config(state="disabled", fg=FG2, highlightbackground=BORDER)
 
-        elif mode == rm[2]:  # Пропорционально по высоте
+        elif key == "prop_height":
             if self._is_auto_or_dash(self._h_val.get()):
                 self._h_val.set(self._last_height)
             self._last_width = self._w_val.get() if self._w_val.get().isdigit() else self._last_width
@@ -1277,7 +1268,7 @@ class App(BaseClass):
             self._e_width.config(state="disabled", fg=FG2, highlightbackground=BORDER)
             self._e_height.config(state="normal",  fg=FG,  highlightbackground=ACCENT)
 
-        elif mode == rm[3]:  # Умная обрезка
+        elif key == "smart_crop":
             if self._is_auto_or_dash(self._w_val.get()):
                 self._w_val.set(self._last_width)
             if self._is_auto_or_dash(self._h_val.get()):
@@ -1285,7 +1276,7 @@ class App(BaseClass):
             self._e_width.config(state="normal",  fg=FG, highlightbackground=ACCENT, highlightcolor=ACCENT)
             self._e_height.config(state="normal", fg=FG, highlightbackground=ACCENT, highlightcolor=ACCENT)
 
-        else:  # rm[4] — Пользовательский
+        else:  # custom
             if self._is_auto_or_dash(self._w_val.get()):
                 self._w_val.set(self._last_width)
             if self._is_auto_or_dash(self._h_val.get()):
@@ -1305,10 +1296,9 @@ class App(BaseClass):
             self._qual_slider.set_enabled(quality_matters)
 
         if fmt == "ICO":
-            rm = self._resize_modes_localized()
             current_key = self._current_resize_mode_key()
             if current_key not in ("smart_crop", "custom"):
-                self._resize_mode.set(rm[3])  # smart_crop
+                self._resize_mode.set(self._key_to_localized_mode("smart_crop"))
             self._w_val.set("256")
             self._h_val.set("256")
             self._on_resize_mode_changed()
@@ -1355,12 +1345,11 @@ class App(BaseClass):
         (пользователь переключился между полями). Если фокус уходит куда-то ещё
         (кнопка, combobox и т.д.) — оба поля остаются ACCENT.
         """
-        mode      = self._resize_mode.get()
-        rm        = self._resize_modes_localized()
-        w         = event.widget
-        focus_to  = self.focus_get()
+        key      = self._current_resize_mode_key()
+        w        = event.widget
+        focus_to = self.focus_get()
 
-        if mode in (rm[3], rm[4]):
+        if key in ("smart_crop", "custom"):
             # Фокус ушёл в другое поле размера — гасим текущее, второе уже
             # подсветится через _on_size_click / _on_size_focus_in
             other = self._e_height if w is self._e_width else self._e_width
@@ -1369,9 +1358,9 @@ class App(BaseClass):
             else:
                 # Фокус ушёл куда-то ещё — оба поля остаются активными
                 w.config(highlightbackground=ACCENT, highlightcolor=ACCENT)
-        elif mode == rm[1] and w is self._e_width:
+        elif key == "prop_width" and w is self._e_width:
             w.config(highlightbackground=ACCENT, highlightcolor=ACCENT)
-        elif mode == rm[2] and w is self._e_height:
+        elif key == "prop_height" and w is self._e_height:
             w.config(highlightbackground=ACCENT, highlightcolor=ACCENT)
         else:
             w.config(highlightbackground=BORDER, highlightcolor=BORDER)
@@ -1524,7 +1513,8 @@ class App(BaseClass):
         else:
             self._clbl.config(text=f"{n} {'file' if n == 1 else 'files'}")
 
-        self._status.set(self.t("files_count").format(n=n))
+        if not self._running:
+            self._status.set(self.t("files_count").format(n=n))
         self._lbl_size_src.config(
             text=f"{self.t('was')}  {format_size(self._total_src_bytes)}", fg=FG)
         if self._total_dst_bytes > 0:
@@ -1535,9 +1525,8 @@ class App(BaseClass):
 
         # Если в списке есть SVG-файлы — автоматически переключаем на Custom
         if SVG_AVAILABLE and any(os.path.splitext(p)[1].lower() == ".svg" for p in self._files):
-            rm = self._resize_modes_localized()
-            if self._resize_mode.get() != rm[4]:  # rm[4] = Custom
-                self._resize_mode.set(rm[4])
+            if self._current_resize_mode_key() != "custom":
+                self._resize_mode.set(self._key_to_localized_mode("custom"))
                 self._on_resize_mode_changed()  # event=None → защита не срабатывает
 
         # Отложенное обновление скроллбара, чтобы Treeview успел отрисовать новые строки
@@ -1654,15 +1643,14 @@ class App(BaseClass):
             return
 
         mode     = self._resize_mode.get()
+        mode_key = self._current_resize_mode_key()
         target_w = target_h = 0
         try:
-            rm = self._resize_modes_localized()
-            # rm[1]=prop_w, rm[2]=prop_h, rm[3]=smart_crop, rm[4]=custom
-            if mode in (rm[1], rm[3], rm[4]):
+            if mode_key in ("prop_width", "smart_crop", "custom"):
                 target_w = int(self._w_val.get())
                 if target_w <= 0:
                     raise ValueError
-            if mode in (rm[2], rm[3], rm[4]):
+            if mode_key in ("prop_height", "smart_crop", "custom"):
                 target_h = int(self._h_val.get())
                 if target_h <= 0:
                     raise ValueError
@@ -1673,7 +1661,7 @@ class App(BaseClass):
         # SVG-файлы не имеют встроенного разрешения — нужны оба размера
         if SVG_AVAILABLE:
             has_svg = any(os.path.splitext(p)[1].lower() == ".svg" for p in self._files)
-            if has_svg and mode not in (rm[3], rm[4]):  # только smart_crop или custom
+            if has_svg and mode_key not in ("smart_crop", "custom"):
                 messagebox.showerror(APP_NAME, self.t("svg_no_size_msg"),
                                      title=self.t("svg_no_size_title"))
                 return
@@ -1682,7 +1670,7 @@ class App(BaseClass):
             target_w = min(target_w, 256) if target_w else 256
             target_h = min(target_h, 256) if target_h else 256
             #"Без изменений" + ICO — предупреждение если хотя бы один файл > 256
-            if mode == rm[0]:
+            if mode_key == "no_change":
                 has_large = False
                 for p in self._files:
                     try:
@@ -1711,7 +1699,7 @@ class App(BaseClass):
         fmt_now            = self._fmt.get()
         ext_now            = ".jpg" if fmt_now == "JPEG" else f".{fmt_now.lower()}"
         current_config_str = (f"fmt:{fmt_now}|q:{self._qual.get()}|dir:{out_dir}"
-                              f"|mode:{mode}|w:{target_w}|h:{target_h}")
+                              f"|mode:{mode_key}|w:{target_w}|h:{target_h}")
 
         # Проверяем конфликты по «чистому» имени (без суффикса _1, _2 и т.д.)
         # _generate_unique_filename здесь использовать нельзя — она сама
@@ -1762,7 +1750,9 @@ class App(BaseClass):
 
         threading.Thread(
             target=self._convert_worker,
-            args=(files_snapshot, out_dir, mode, target_w, target_h,
+            args=(files_snapshot, out_dir,
+                  self._fmt.get(), self._qual.get(),
+                  mode_key, target_w, target_h,
                   self._overwrite_confirmed),
             daemon=True).start()
 
@@ -1810,7 +1800,7 @@ class App(BaseClass):
     # ── конвертация (фоновый поток) ───────────────────────────────────────────
 
     def _convert_one(self, path, out_dir, fmt, out_name, quality,
-                     mode, target_w, target_h, current_config_str):
+                     mode, target_w, target_h, current_config_str, resize_key=None):
         """Конвертирует один файл. Вызывается из пула потоков."""
         out_path  = os.path.join(out_dir, out_name)
         error_msg = None
@@ -1821,12 +1811,14 @@ class App(BaseClass):
 
         if cached_entry:
             cached_config, cached_out_path, cached_size, cached_success, cached_res_str = cached_entry
-            if cached_config == current_config_str and os.path.exists(cached_out_path):
+            # Используем кэш только при success=True и наличии файла на диске
+            if (cached_success and cached_config == current_config_str
+                    and os.path.exists(cached_out_path)):
                 return {
                     "path": path, "out_name": out_name, "out_path": cached_out_path,
-                    "success": cached_success, "cached": True,
+                    "success": True, "cached": True,
                     "f_size": cached_size, "res_str": cached_res_str,
-                    "size_str": format_size(cached_size) if cached_success else "0 KB",
+                    "size_str": format_size(cached_size),
                 }
 
         success  = False
@@ -1837,16 +1829,22 @@ class App(BaseClass):
             # ── SVG: рендерим через resvg_py в PNG-байты, затем открываем как обычное изображение
             is_svg = os.path.splitext(path)[1].lower() == ".svg"
             if is_svg and SVG_AVAILABLE:
-                with open(path, "r", encoding="utf-8", errors="replace") as _f:
-                    svg_str = _f.read()
+                # Читаем байты и определяем кодировку: поддерживаем UTF-16 и UTF-8 BOM
+                with open(path, "rb") as _fb:
+                    _raw = _fb.read()
+                if _raw.startswith(b"\xff\xfe") or _raw.startswith(b"\xfe\xff"):
+                    svg_str = _raw.decode("utf-16")
+                elif _raw.startswith(b"\xef\xbb\xbf"):
+                    svg_str = _raw[3:].decode("utf-8", errors="replace")
+                else:
+                    svg_str = _raw.decode("utf-8", errors="replace")
                 # Определяем размер рендера из параметров задачи
-                rm_loc = self._resize_modes_localized()
-                if mode in (rm_loc[3], rm_loc[4]):
-                    # custom / smart_crop — оба размера заданы явно
+                # Используем resize_key (языконезависимый) вместо rm_loc[N]
+                if resize_key in ("smart_crop", "custom"):
                     render_w, render_h = target_w, target_h
-                elif mode == rm_loc[1]:
-                    render_w, render_h = target_w, 0   # resvg масштабирует пропорционально
-                elif mode == rm_loc[2]:
+                elif resize_key == "prop_width":
+                    render_w, render_h = target_w, 0
+                elif resize_key == "prop_height":
                     render_w, render_h = 0, target_h
                 else:
                     render_w, render_h = target_w or 0, target_h or 0
@@ -1862,7 +1860,7 @@ class App(BaseClass):
                 orig_w, orig_h = img.size
                 # После рендера resize не нужен — resvg уже отрисовал нужный размер.
                 # Для smart_crop делаем кроп если соотношение не совпало.
-                if mode == rm_loc[3] and (orig_w, orig_h) != (target_w, target_h):
+                if resize_key == "smart_crop" and (orig_w, orig_h) != (target_w, target_h):
                     scale = max(target_w / orig_w, target_h / orig_h)
                     inter_w = max(1, round(orig_w * scale))
                     inter_h = max(1, round(orig_h * scale))
@@ -1895,19 +1893,18 @@ class App(BaseClass):
                 except Exception:
                     pass
 
-                rm = self._resize_modes_localized()
-
                 # Для SVG resize пропускаем — изображение уже отрендерено в нужный размер
+                # Используем resize_key (языконезависимый) вместо rm[N]
                 if not is_svg:
-                    if mode == rm[1]:
+                    if resize_key == "prop_width":
                         new_w = target_w
                         new_h = max(1, round(orig_h * (target_w / orig_w)))
                         img = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
-                    elif mode == rm[2]:
+                    elif resize_key == "prop_height":
                         new_h = target_h
                         new_w = max(1, round(orig_w * (target_h / orig_h)))
                         img = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
-                    elif mode == rm[3]:
+                    elif resize_key == "smart_crop":
                         scale = max(target_w / orig_w, target_h / orig_h)
                         inter_w = max(1, round(orig_w * scale))
                         inter_h = max(1, round(orig_h * scale))
@@ -1915,13 +1912,15 @@ class App(BaseClass):
                         left = (inter_w - target_w) // 2
                         top = (inter_h - target_h) // 2
                         img = img.crop((left, top, left + target_w, top + target_h))
-                    elif mode == rm[4]:
+                    elif resize_key == "custom":
                         img = img.resize((target_w, target_h), Image.Resampling.LANCZOS)
 
                 if fmt == "JPEG" and img.mode in ("RGBA", "P", "PA", "LA"):
-                    img = img.convert("RGBA")
-                    bg_img = Image.new("RGB", img.size, (255, 255, 255))
-                    bg_img.paste(img, mask=img.split()[3])
+                    # Сначала конвертируем в RGBA, затем берём маску —
+                    # в палитровом режиме "P" split()[3] не альфа-канал
+                    rgba   = img.convert("RGBA")
+                    bg_img = Image.new("RGB", rgba.size, (255, 255, 255))
+                    bg_img.paste(rgba, mask=rgba.split()[3])
                     img = bg_img
 
                 kw = {"quality": quality} if fmt in ("JPEG", "WEBP", "HEIC") else {}
@@ -1930,7 +1929,7 @@ class App(BaseClass):
                     if img.mode not in ("RGBA", "RGB"):
                         img = img.convert("RGBA")
                     std_sizes = [16, 24, 32, 48, 64, 128, 256]
-                    if mode == rm[0]:
+                    if resize_key == "no_change":
                         all_sizes = [s for s in sorted(set(std_sizes + [img.size[0]])) if s <= 256]
                         kw["sizes"] = [(s, s) for s in all_sizes]
                     else:
@@ -1941,10 +1940,19 @@ class App(BaseClass):
 
                 tmp_path = out_path + ".tmp"
                 save_fmt = "HEIF" if fmt == "HEIC" else fmt
-                img.save(tmp_path, save_fmt, **kw)
-                if os.path.exists(out_path):
-                    os.remove(out_path)
-                os.replace(tmp_path, out_path)
+                try:
+                    img.save(tmp_path, save_fmt, **kw)
+                    if os.path.exists(out_path):
+                        os.remove(out_path)
+                    os.replace(tmp_path, out_path)
+                except Exception:
+                    # Удаляем незавершённый временный файл при любой ошибке записи
+                    try:
+                        if os.path.exists(tmp_path):
+                            os.remove(tmp_path)
+                    except OSError:
+                        pass
+                    raise
                 # Для ICO показываем реальный максимальный размер внутри файла
                 if fmt == "ICO":
                     try:
@@ -1963,10 +1971,15 @@ class App(BaseClass):
             # Сохраняем текст ошибки отдельно, out_path остаётся валидным путём
             error_msg = str(ex)
 
-        # Запись в кэш защищена блокировкой
-        with self._data_lock:
-            self._converted_cache[path] = (
-                current_config_str, out_path, f_size, success, res_str)
+        # Запись в кэш только при успехе — неудачи не кэшируем,
+        # чтобы следующий запуск пересчитал файл заново.
+        if success:
+            with self._data_lock:
+                # LRU-ограничение: не более 500 записей за сессию
+                if len(self._converted_cache) >= 500:
+                    self._converted_cache.pop(next(iter(self._converted_cache)))
+                self._converted_cache[path] = (
+                    current_config_str, out_path, f_size, True, res_str)
 
         return {
             "path":      path,
@@ -2002,19 +2015,20 @@ class App(BaseClass):
                 return filename
             counter += 1
 
-    def _convert_worker(self, files_snapshot, out_dir, mode, target_w, target_h,
-                        allow_overwrite=False):
+    def _convert_worker(self, files_snapshot, out_dir, fmt, quality, mode_key,
+                        target_w, target_h, allow_overwrite=False):
         """Фоновый рабочий поток: конвертирует все файлы параллельно."""
-        fmt     = self._fmt.get()
-        ext     = ".jpg" if fmt == "JPEG" else f".{fmt.lower()}"
-        quality = self._qual.get()
-        total   = len(files_snapshot)
+        # fmt, quality, mode_key переданы из GUI-потока как снимок значений —
+        # не читаем self._fmt / self._qual / self._resize_mode из фонового потока.
+        ext        = ".jpg" if fmt == "JPEG" else f".{fmt.lower()}"
+        resize_key = mode_key  # уже языконезависимый ключ, декодирование не нужно
+        total      = len(files_snapshot)
 
         ok_cnt = err_cnt = 0
         done   = 0
 
         current_config_str = (f"fmt:{fmt}|q:{quality}|dir:{out_dir}"
-                              f"|mode:{mode}|w:{target_w}|h:{target_h}")
+                              f"|mode:{mode_key}|w:{target_w}|h:{target_h}")
         workers = min(os.cpu_count() or 4, 8)
 
         # Предварительное выделение уникальных имён на основе снимка списка
@@ -2031,8 +2045,16 @@ class App(BaseClass):
         with ThreadPoolExecutor(max_workers=workers) as pool:
             for path in files_snapshot:
                 out_name = allocated_names[path]
+                # Для SVG добавляем пометку в статус — рендер может занять время
+                bname_submit = os.path.basename(path)
+                if os.path.splitext(path)[1].lower() == ".svg" and SVG_AVAILABLE:
+                    self._gui_queue.put({
+                        "action":   "progress",
+                        "status":   f"SVG → {bname_submit[:16]}",
+                        "prog_val": self._gui_queue.qsize(),  # приблизительно
+                    })
                 f = pool.submit(self._convert_one, path, out_dir, fmt, out_name, quality,
-                                mode, target_w, target_h, current_config_str)
+                                mode_key, target_w, target_h, current_config_str, resize_key)
                 futures[f] = path
 
             for future in as_completed(futures):
