@@ -91,7 +91,6 @@ You can enable or disable settings persistence in the Settings window — when d
 ## Roadmap / Future Plans
 
 Here are the features planned for upcoming releases:
-- [x] **Correct ICO** — generates a full multi-layered icon pack (16, 24, 32, 48, 64, 128, 256 px) in a single *.ico file.
 - [x] **HEIC support** — ability to convert images both to and from the high-efficiency format used by Apple devices.
 - [x] **File sorting** — ability to sort by name, size, or resolution.
 - [x] **SVG input support** — converting vector SVG files into raster formats (PNG, JPEG, WEBP and other).
