@@ -2191,8 +2191,9 @@ class App(BaseClass):
 
         ww, wh = 300, 185
         win.update_idletasks()
-        sw, sh = win.winfo_screenwidth(), win.winfo_screenheight()
-        win.geometry(f"{ww}x{wh}+{(sw - ww) // 2}+{(sh - wh) // 2}")
+        x = self.winfo_x() + (self.winfo_width() - ww) // 2
+        y = self.winfo_y() + (self.winfo_height() - wh) // 2
+        win.geometry(f"{ww}x{wh}+{x}+{y}")
 
         settings_title_lbl = tk.Label(win, text=self.t("settings_title"),
                                       font=("Segoe UI", 12, "bold"), bg=BG, fg=FG)
