@@ -31,6 +31,7 @@ import subprocess
 from PIL import Image
 from PIL import ImageCms
 import io
+import re
 
 # Делаем приложение четким на экранах с масштабированием (High DPI)
 try:
@@ -355,7 +356,6 @@ def get_file_size_str(path):
 
 def get_svg_resolution_pure(path):
     """Быстро и безопасно находит размеры SVG через регулярные выражения."""
-    import re
     try:
         # Читаем только самое начало файла (этого хватит для тега <svg>)
         with open(path, "rb") as f:
@@ -383,7 +383,7 @@ def get_svg_resolution_pure(path):
             return int(float(vb_match.group(3))), int(float(vb_match.group(4)))
             
     except Exception as e:
-        print(f"Formatix SVG parse error: {e}")
+        pass
         
     return None, None
 
@@ -663,7 +663,7 @@ class App(BaseClass):
                     self.iconphoto(True, *icons)
                     self._icon_refs = icons  # защита от сборщика мусора
         except Exception as e:
-            print("Ошибка загрузки иконки главного окна:", e)
+            pass
 
         self._files           = []
         self._results         = []
@@ -1494,18 +1494,24 @@ class App(BaseClass):
     def _drop(self, e):
         """Обрабатывает сброс файлов из файлового менеджера."""
         self._dz_hover(False)
+        new_paths = []
         for p in self.tk.splitlist(e.data):
             p = p.strip()
             if p and p not in self._files:
                 if os.path.splitext(p)[1].lower() in IMG_EXTS:
                     self._files.append(p)
+                    new_paths.append(p)
                     try:
                         self._total_src_bytes += os.path.getsize(p)
                     except Exception:
                         pass
-                    self._tv_src.insert("", "end", values=(
-                        os.path.basename(p), get_image_res_str(p), get_file_size_str(p)))
+                    # Добавляем мгновенно с "..." — разрешение загрузится фоново
+                    self._tv_src.insert("", "end", iid=p, values=(
+                        os.path.basename(p), "...", get_file_size_str(p)))
         self._upd()
+        if new_paths:
+            threading.Thread(target=self._load_resolutions,
+                             args=(new_paths,), daemon=True).start()
 
     # ── управление списком файлов ─────────────────────────────────────────────
 
@@ -1517,16 +1523,36 @@ class App(BaseClass):
                         + (" *.heic *.heif" if HEIF_AVAILABLE else "")
                         + (" *.svg" if SVG_AVAILABLE else "")),
                        ("All", "*.*")])
+        new_paths = []
         for f in files:
             if f not in self._files:
                 self._files.append(f)
+                new_paths.append(f)
                 try:
                     self._total_src_bytes += os.path.getsize(f)
                 except Exception:
                     pass
-                self._tv_src.insert("", "end", values=(
-                    os.path.basename(f), get_image_res_str(f), get_file_size_str(f)))
+                # Добавляем мгновенно с "..." — разрешение загрузится фоново
+                self._tv_src.insert("", "end", iid=f, values=(
+                    os.path.basename(f), "...", get_file_size_str(f)))
         self._upd()
+        if new_paths:
+            threading.Thread(target=self._load_resolutions,
+                             args=(new_paths,), daemon=True).start()
+
+    def _load_resolutions(self, paths):
+        """Фоновый поток: загружает разрешения файлов и обновляет Treeview."""
+        for path in paths:
+            try:
+                res = get_image_res_str(path)
+            except Exception:
+                res = "—"
+            # Обновляем строку в Treeview через gui_queue чтобы не трогать UI из потока
+            self._gui_queue.put({
+                "action": "update_src_res",
+                "iid":    path,
+                "res":    res,
+            })
 
     def _clear(self):
         """Очищает списки файлов и результатов."""
@@ -1845,6 +1871,17 @@ class App(BaseClass):
                     self._total_dst_bytes += task["size_bytes"]
                     self._lbl_size_dst.config(
                         text=f"{self.t('became')} {format_size(self._total_dst_bytes)}", fg=GREEN)
+
+                elif action == "update_src_res":
+                    # Обновляем разрешение в левой таблице после фоновой загрузки
+                    iid = task["iid"]
+                    try:
+                        if self._tv_src.exists(iid):
+                            vals = list(self._tv_src.item(iid, "values"))
+                            vals[1] = task["res"]
+                            self._tv_src.item(iid, values=vals)
+                    except Exception:
+                        pass
 
                 elif action == "progress":
                     self._status.set(task["status"])
