@@ -93,7 +93,7 @@ FG3     = "#45475a"
 BORDER  = "#313244"
 
 APP_NAME = "Formatix Image Converter"
-VERSION  = "1.11.0"
+VERSION  = "1.11.1"
 
 # Константы анимации сердечка
 _HEART_BEAT1_MS   = 120
@@ -2130,14 +2130,6 @@ class App(BaseClass):
         with ThreadPoolExecutor(max_workers=workers) as pool:
             for path in files_snapshot:
                 out_name = allocated_names[path]
-                # Для SVG добавляем пометку в статус — рендер может занять время
-                bname_submit = os.path.basename(path)
-                if os.path.splitext(path)[1].lower() == ".svg" and SVG_AVAILABLE:
-                    self._gui_queue.put({
-                        "action":   "progress",
-                        "status":   f"SVG → {bname_submit[:16]}",
-                        "prog_val": self._gui_queue.qsize(),  # приблизительно
-                    })
                 f = pool.submit(self._convert_one, path, out_dir, fmt, out_name, quality,
                                 mode_key, target_w, target_h, current_config_str, resize_key)
                 futures[f] = path
