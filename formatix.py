@@ -94,7 +94,7 @@ FG3     = "#45475a"
 BORDER  = "#313244"
 
 APP_NAME = "Formatix Image Converter"
-VERSION  = "1.11.2"
+VERSION  = "1.12.0"
 
 # Константы анимации сердечка
 _HEART_BEAT1_MS   = 120
@@ -117,7 +117,7 @@ STRINGS = {
         "pick_dir": "📁 Choose", "format_lbl": "FORMAT", "quality_lbl": "QUALITY",
         "resize_lbl": "CHANGING RESOLUTION", "progress_lbl": "PROGRESS",
         "filesize_lbl": "FILE SIZE", "was": "Was:", "became": "Became:",
-        "convert_btn": "▶  Convert", "processing_btn": "▶  Processing...",
+        "convert_btn": "▶  Convert", "processing_btn": "▶  Processing...", "stop_btn": "■  Stop",
         "col_filename": "File Name", "col_res": "Resolution", "col_size": "Size", "col_status": "Status",
         "drop_hint": "Drag images here\nor click to browse", "drop_release": "Release files here!",
         "ready": "Ready", "files_count": "Files: {n}",
@@ -158,7 +158,7 @@ STRINGS = {
         "pick_dir": "📁 Выбрать", "format_lbl": "ФОРМАТ", "quality_lbl": "КАЧЕСТВО",
         "resize_lbl": "ИЗМЕНЕНИЕ РАЗРЕШЕНИЯ", "progress_lbl": "ПРОГРЕСС",
         "filesize_lbl": "РАЗМЕР ФАЙЛОВ", "was": "Было: ", "became": "Стало:",
-        "convert_btn": "▶  Конвертировать", "processing_btn": "▶  Обработка...",
+        "convert_btn": "▶  Конвертировать", "processing_btn": "▶  Обработка...", "stop_btn": "■  Остановить",
         "col_filename": "Имя файла", "col_res": "Разрешение", "col_size": "Размер", "col_status": "Статус",
         "drop_hint": "Переместите изображения сюда\nили нажмите для обзора", "drop_release": "Отпустите файлы здесь!",
         "ready": "Готов к работе", "files_count": "Файлов: {n}",
@@ -199,7 +199,7 @@ STRINGS = {
         "pick_dir": "📁 Обрати", "format_lbl": "ФОРМАТ", "quality_lbl": "ЯКІСТЬ",
         "resize_lbl": "ЗМІНА РОЗДІЛЬНОСТІ", "progress_lbl": "ПРОГРЕС",
         "filesize_lbl": "РОЗМІР ФАЙЛІВ", "was": "Було: ", "became": "Стало:",
-        "convert_btn": "▶  Конвертувати", "processing_btn": "▶  Обробка...",
+        "convert_btn": "▶  Конвертувати", "processing_btn": "▶  Обробка...", "stop_btn": "■  Зупинити",
         "col_filename": "Ім'я файлу", "col_res": "Роздільність", "col_size": "Розмір", "col_status": "Статус",
         "drop_hint": "Перетягніть зображення сюди\nабо натисніть для огляду", "drop_release": "Відпусти файли тут!",
         "ready": "Готовий до роботи",
@@ -241,7 +241,7 @@ STRINGS = {
         "pick_dir": "📁 Wählen", "format_lbl": "FORMAT", "quality_lbl": "QUALITÄT",
         "resize_lbl": "AUFLÖSUNGSÄNDERUNG", "progress_lbl": "FORTSCHRITT",
         "filesize_lbl": "DATEIGRÖSSE", "was": "War:  ", "became": "Jetzt:",
-        "convert_btn": "▶  Konvertieren", "processing_btn": "▶  Verarbeitung...",
+        "convert_btn": "▶  Konvertieren", "processing_btn": "▶  Verarbeitung...", "stop_btn": "■  Stopp",
         "col_filename": "Dateiname", "col_res": "Auflösung", "col_size": "Größe", "col_status": "Status",
         "drop_hint": "Ziehen Sie Bilder hierher\noder klicken Sie zum Durchsuchen", "drop_release": "Lassen Sie die Dateien hier los!",
         "ready": "Bereit", "files_count": "Dateien: {n}",
@@ -282,7 +282,7 @@ STRINGS = {
         "pick_dir": "📁 选择", "format_lbl": "格式", "quality_lbl": "质量",
         "resize_lbl": "更改分辨率", "progress_lbl": "进度",
         "filesize_lbl": "文件大小", "was": "之前:", "became": "之后:",
-        "convert_btn": "▶  转换", "processing_btn": "▶  处理中...",
+        "convert_btn": "▶  转换", "processing_btn": "▶  处理中...", "stop_btn": "■  停止",
         "col_filename": "文件名", "col_res": "分辨率", "col_size": "大小", "col_status": "状态",
         "drop_hint": "请拖拽图片到这里\n或点击浏览", "drop_release": "请在此释放文件！",
         "ready": "准备就绪", "files_count": "文件数: {n}",
@@ -669,6 +669,7 @@ class App(BaseClass):
         self._results         = []
         self._out_dir         = tk.StringVar(value="")
         self._running         = False
+        self._stop_requested  = False
         self._converted_cache = {}
         self._total_src_bytes = 0
         self._total_dst_bytes = 0
@@ -692,6 +693,11 @@ class App(BaseClass):
             if saved_resize_loc in self._resize_modes_localized():
                 self._resize_mode.set(saved_resize_loc)
                 self._on_resize_mode_changed()
+            # Восстанавливаем папку сохранения
+            saved_out_dir = self._settings.get("out_dir", "")
+            if saved_out_dir and os.path.isdir(saved_out_dir):
+                self._out_dir.set(saved_out_dir)
+                self._dir_lbl.config(fg=FG)
 
         self._loading = False  # восстановление завершено, теперь сохранять можно
 
@@ -772,18 +778,27 @@ class App(BaseClass):
             self._settings["resize_mode_key"] = self._current_resize_mode_key()
         except AttributeError:
             pass
+        try:
+            out_dir_val = self._out_dir.get()
+            # Сохраняем только реальный путь, не плейсхолдер
+            if out_dir_val and os.path.isdir(out_dir_val):
+                self._settings["out_dir"] = out_dir_val
+            else:
+                self._settings["out_dir"] = ""
+        except AttributeError:
+            pass
 
         self._settings["lang"]              = self._lang
         self._settings["remember_settings"] = self._remember_settings.get()
 
         # На диск пишем всегда — но если remember выключен,
-        # очищаем fmt/quality/resize из того что запишем, чтобы при следующем
-        # запуске они не подхватились
+        # очищаем fmt/quality/resize/out_dir из того что запишем
         to_write = dict(self._settings)
         if not self._remember_settings.get():
             to_write.pop("fmt", None)
             to_write.pop("quality", None)
             to_write.pop("resize_mode_key", None)
+            to_write.pop("out_dir", None)
         save_settings(to_write)
 
     # ── стили ─────────────────────────────────────────────────────────────────
@@ -1072,6 +1087,8 @@ class App(BaseClass):
         self._cbtn = self._btn(_cbtn_blk, self.t("convert_btn"), self._start, accent=True, big=True)
         self._cbtn.config(width=16)
         self._cbtn.pack(anchor="w", pady=(7, 0))
+        self._cbtn.bind("<Enter>", self._on_cbtn_enter)
+        self._cbtn.bind("<Leave>", self._on_cbtn_leave)
 
         # РАЗМЕР ФАЙЛОВ
         _sz_blk2, self._filesize_lbl, _sz_wf2 = _ctrl_block(ctrl_row, self.t("filesize_lbl"))
@@ -1473,11 +1490,14 @@ class App(BaseClass):
         if d:
             self._out_dir.set(d)
             self._dir_lbl.config(fg=FG)
+            self._save_settings()
 
     def _clear_dir(self):
         """Сбрасывает папку сохранения."""
         self._out_dir.set(self.t("folder_placeholder"))
         self._dir_lbl.config(fg=FG2)
+        self._settings.pop("out_dir", None)
+        self._save_settings()
 
     # ── drag-and-drop ─────────────────────────────────────────────────────────
 
@@ -1727,9 +1747,25 @@ class App(BaseClass):
 
     # ── запуск конвертации ────────────────────────────────────────────────────
 
+    def _on_cbtn_enter(self, e=None):
+        """При наведении во время конвертации показываем 'Остановить'."""
+        if self._running and not self._stop_requested:
+            self._cbtn.config(text=self.t("stop_btn"))
+
+    def _on_cbtn_leave(self, e=None):
+        """При уходе мыши возвращаем 'Обработка...'."""
+        if self._running and not self._stop_requested:
+            self._cbtn.config(text=self.t("processing_btn"))
+
+    def _toggle_stop(self):
+        """Устанавливает флаг остановки — воркер завершит текущие задачи и выйдет."""
+        self._stop_requested = True
+        self._cbtn.config(text=self.t("processing_btn"))  # убрать hover-текст
+
     def _start(self):
         """Валидирует параметры и запускает фоновый поток конвертации."""
         if self._running:
+            self._toggle_stop()
             return
         if not self._files:
             messagebox.showwarning(APP_NAME, self.t("warn_no_files"))
@@ -1787,6 +1823,7 @@ class App(BaseClass):
                 return
             self._out_dir.set(out_dir)
             self._dir_lbl.config(fg=FG)
+            self._save_settings()
 
         fmt_now            = self._fmt.get()
         ext_now            = ".jpg" if fmt_now == "JPEG" else f".{fmt_now.lower()}"
@@ -1831,6 +1868,7 @@ class App(BaseClass):
         self._status_err.set("")
         self._open_dir_btn.config(fg=FG3)
         self._running = True
+        self._stop_requested = False
         self._cbtn.config(text=self.t("processing_btn"))
         self._prog["value"] = 0
         self.update_idletasks()
@@ -1888,12 +1926,17 @@ class App(BaseClass):
                     self._prog["value"] = task["prog_val"]
 
                 elif action == "finish":
-                    self._status.set(f"✔ {task['ok']}")
-                    self._status_lbl.config(fg=GREEN)
+                    if task.get("stopped"):
+                        self._status.set(f"■  {task['ok']}" + (f"  ✘ {task['err']}" if task["err"] else ""))
+                        self._status_lbl.config(fg=FG2)
+                    else:
+                        self._status.set(f"✔ {task['ok']}")
+                        self._status_lbl.config(fg=GREEN)
                     self._status_err.set(f"✘ {task['err']}" if task["err"] else "")
                     self._cbtn.config(state="normal", text=self.t("convert_btn"))
                     self._open_dir_btn.config(fg=GREEN)
                     self._running = False
+                    self._stop_requested = False
 
                 self._gui_queue.task_done()
         except queue.Empty:
@@ -2182,9 +2225,17 @@ class App(BaseClass):
                     "status":   f"{done}/{total}  {bname[:12]}",
                     "prog_val": round(done / total * 100),
                 })
+                # Проверяем флаг остановки после каждого завершённого файла
+                if self._stop_requested:
+                    # Отменяем ещё не запущенные задачи
+                    for f in futures:
+                        f.cancel()
+                    break
 
-        # Вставляем результаты в порядке исходного списка файлов
+        # Вставляем только завершённые результаты (при остановке — частичные)
         for path in files_snapshot:
+            if path not in results_by_path:
+                continue  # файл не был обработан — пропускаем
             res = results_by_path[path]
             if res["success"]:
                 ok_cnt += 1
@@ -2203,11 +2254,12 @@ class App(BaseClass):
             })
 
         self._gui_queue.put({
-            "action": "finish",
-            "status": f"✔ {ok_cnt}" + (f"  ✘ {err_cnt}" if err_cnt else ""),
-            "ok":     ok_cnt,
-            "err":    err_cnt,
-            "dir":    out_dir,
+            "action":  "finish",
+            "status":  f"✔ {ok_cnt}" + (f"  ✘ {err_cnt}" if err_cnt else ""),
+            "ok":      ok_cnt,
+            "err":     err_cnt,
+            "dir":     out_dir,
+            "stopped": self._stop_requested,
         })
 
     # ── окна настроек и доната ────────────────────────────────────────────────
