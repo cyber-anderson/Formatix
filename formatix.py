@@ -1748,12 +1748,16 @@ class App(BaseClass):
     # ── запуск конвертации ────────────────────────────────────────────────────
 
     def _on_cbtn_enter(self, e=None):
-        """При наведении во время конвертации показываем 'Остановить'."""
+        """При наведении: подсвечиваем кнопку + показываем 'Остановить' во время конвертации."""
+        if self._cbtn["state"] != "disabled":
+            self._cbtn.config(bg=ACCENT2, fg="#fff")
         if self._running and not self._stop_requested:
             self._cbtn.config(text=self.t("stop_btn"))
 
     def _on_cbtn_leave(self, e=None):
-        """При уходе мыши возвращаем 'Обработка...'."""
+        """При уходе мыши: возвращаем обычный цвет + текст 'Обработка...'."""
+        if self._cbtn["state"] != "disabled":
+            self._cbtn.config(bg=ACCENT, fg="#fff")
         if self._running and not self._stop_requested:
             self._cbtn.config(text=self.t("processing_btn"))
 
