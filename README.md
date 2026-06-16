@@ -87,17 +87,6 @@ Settings are stored in `~/.formatix_image_converter_settings.json`.
 You can enable or disable settings persistence in the Settings window — when disabled, the app always starts with default values (the language preference is always remembered regardless).
 
 ---
-## Roadmap / Future Plans
-
-Here are the features planned for upcoming releases:
-- [x] **HEIC support** — ability to convert images both to and from the high-efficiency format used by Apple devices.
-- [x] **File sorting** — ability to sort by name, size, or resolution.
-- [x] **SVG input support** — converting vector SVG files into raster formats (PNG, JPEG, WEBP and other).
-- [ ] **SVG output support** — converting raster formats (PNG, JPEG, WEBP and others) into vector SVG files.
-- [x] **AVIF support** — full input and output support for the next-generation format, enabling superior compression and quality.
-- [ ] **Light Theme support** — a clean, high-contrast alternative to the current dark palette.
-
----
 
 ## ☕ Support the Author
 
