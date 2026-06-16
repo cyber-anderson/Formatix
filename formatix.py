@@ -79,22 +79,112 @@ try:
 except Exception:
     pass
 
+SETTINGS_FILE = os.path.join(os.path.expanduser("~"), ".formatix_image_converter_settings.json")
+
+
+def load_settings():
+    """Загружает настройки из JSON-файла в домашней директории."""
+    try:
+        with open(SETTINGS_FILE, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def save_settings(data):
+    """Сохраняет настройки в JSON-файл."""
+    try:
+        with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
+
+def detect_system_theme():
+    r"""Определяет текущую тему оформления системы (светлая/тёмная).
+
+    Порядок проверки:
+    1. Windows — реестр AppsUseLightTheme (HKCU\...\Personalize)
+    2. macOS — defaults read -g AppleInterfaceStyle
+    3. Linux — надёжного универсального способа нет, по умолчанию "dark"
+
+    Возвращает "dark" или "light".
+    """
+    if sys.platform == "win32":
+        try:
+            import winreg
+            with winreg.OpenKey(
+                    winreg.HKEY_CURRENT_USER,
+                    r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize") as key:
+                value, _ = winreg.QueryValueEx(key, "AppsUseLightTheme")
+            # 1 — светлая тема приложений, 0 — тёмная
+            return "light" if value == 1 else "dark"
+        except Exception:
+            pass
+
+    elif sys.platform == "darwin":
+        try:
+            result = subprocess.run(
+                ["defaults", "read", "-g", "AppleInterfaceStyle"],
+                capture_output=True, text=True, timeout=2)
+            # Ключ существует и равен "Dark" только в тёмном режиме;
+            # в светлом режиме ключа нет вовсе (ненулевой returncode)
+            if result.returncode == 0 and "dark" in result.stdout.lower():
+                return "dark"
+            return "light"
+        except Exception:
+            pass
+
+    return "dark"
+
+
 # ── палитра ───────────────────────────────────────────────────────────────────
-BG      = "#0f0f1a"
-BG2     = "#181825"
-BG3     = "#1e1e2e"
-CARD    = "#232336"
-ACCENT  = "#c678dd"
-ACCENT2 = "#ff6b9d"
-HEART_RED = "#ff3366"
-GREEN   = "#a8ff78"
-FG      = "#cdd6f4"
-FG2     = "#6c7086"
-FG3     = "#45475a"
-BORDER  = "#313244"
+# Тёмная тема — оригинальные цвета, без изменений
+THEME_DARK = {
+    "BG": "#0f0f1a", "BG2": "#181825", "BG3": "#1e1e2e", "CARD": "#232336",
+    "ACCENT": "#c678dd", "ACCENT2": "#ff6b9d", "HEART_RED": "#ff3366",
+    "GREEN": "#a8ff78", "FG": "#cdd6f4", "FG2": "#6c7086", "FG3": "#45475a",
+    "BORDER": "#313244",
+}
+
+# Светлая тема — тот же оттенок акцента (фиолетово-розовый), но на светлом фоне
+THEME_LIGHT = {
+    "BG": "#fafafc", "BG2": "#f0f0f5", "BG3": "#e6e6ee", "CARD": "#ffffff",
+    "ACCENT": "#9c4dcc", "ACCENT2": "#e0457f", "HEART_RED": "#e0304f",
+    "GREEN": "#4a9a1f", "FG": "#1e1e2e", "FG2": "#5c5c70", "FG3": "#b8b8c8",
+    "BORDER": "#d4d4dc",
+}
+
+THEMES = {"dark": THEME_DARK, "light": THEME_LIGHT}
+
+# Тема читается из настроек до отрисовки UI — переключение требует перезапуска,
+# так как сотни виджетов создаются один раз со значениями этих констант.
+# При первом запуске (ключа "theme" в настройках ещё нет) определяем системную
+# тему автоматически — по аналогии с detect_system_lang() для языка.
+_settings_snapshot = load_settings()
+if "theme" in _settings_snapshot:
+    ACTIVE_THEME = _settings_snapshot["theme"]
+else:
+    ACTIVE_THEME = detect_system_theme()
+if ACTIVE_THEME not in THEMES:
+    ACTIVE_THEME = "dark"
+_palette = THEMES[ACTIVE_THEME]
+
+BG      = _palette["BG"]
+BG2     = _palette["BG2"]
+BG3     = _palette["BG3"]
+CARD    = _palette["CARD"]
+ACCENT  = _palette["ACCENT"]
+ACCENT2 = _palette["ACCENT2"]
+HEART_RED = _palette["HEART_RED"]
+GREEN   = _palette["GREEN"]
+FG      = _palette["FG"]
+FG2     = _palette["FG2"]
+FG3     = _palette["FG3"]
+BORDER  = _palette["BORDER"]
 
 APP_NAME = "Formatix Image Converter"
-VERSION  = "1.12.0"
+VERSION  = "1.13.0"
 
 # Константы анимации сердечка
 _HEART_BEAT1_MS   = 120
@@ -148,6 +238,8 @@ STRINGS = {
         "ico_too_large_cancel": "Cancel",
         "ico_too_large_ok": "OK",
         "settings_remember": "Remember settings",
+        "settings_theme": "Theme", "theme_dark": "Dark", "theme_light": "Light",
+        "theme_restart_note": "Restart the app to apply the new theme.",
         "svg_no_size_title": "SVG: size required",
         "svg_no_size_msg": "SVG files have no fixed resolution.\nPlease set width and height in “Custom” mode before converting.",
     },
@@ -189,6 +281,8 @@ STRINGS = {
         "ico_too_large_cancel": "Отмена",
         "ico_too_large_ok": "ОК",
         "settings_remember": "Запоминать настройки",
+        "settings_theme": "Тема", "theme_dark": "Тёмная", "theme_light": "Светлая",
+        "theme_restart_note": "Перезапустите приложение, чтобы применить новую тему.",
         "svg_no_size_title": "SVG: требуется размер",
         "svg_no_size_msg": "SVG-файлы не имеют фиксированного разрешения.\nПожалуйста, задайте ширину и высоту в режиме «Пользовательский» перед конвертацией.",
     },
@@ -231,6 +325,8 @@ STRINGS = {
         "ico_too_large_cancel": "Скасувати",
         "ico_too_large_ok": "ОК",
         "settings_remember": "Запам'ятовувати налаштування",
+        "settings_theme": "Тема", "theme_dark": "Темна", "theme_light": "Світла",
+        "theme_restart_note": "Перезапустіть застосунок, щоб застосувати нову тему.",
         "svg_no_size_title": "SVG: потрібен розмір",
         "svg_no_size_msg": "SVG-файли не мають фіксованої роздільності.\nБудь ласка, задайте ширину і висоту в режимі «Користувацький» перед конвертацією.",
     },
@@ -272,6 +368,8 @@ STRINGS = {
         "ico_too_large_cancel": "Abbrechen",
         "ico_too_large_ok": "OK",
         "settings_remember": "Einstellungen speichern",
+        "settings_theme": "Design", "theme_dark": "Dunkel", "theme_light": "Hell",
+        "theme_restart_note": "Starten Sie die App neu, um das neue Design zu übernehmen.",
         "svg_no_size_title": "SVG: Größe erforderlich",
         "svg_no_size_msg": "SVG-Dateien haben keine feste Auflösung.\nBitte geben Sie Breite und Höhe im Modus „Benutzerdefiniert“ vor der Konvertierung ein.",
     },
@@ -313,30 +411,12 @@ STRINGS = {
         "ico_too_large_cancel": "取消",
         "ico_too_large_ok": "确定",
         "settings_remember": "记住设置",
+        "settings_theme": "主题", "theme_dark": "深色", "theme_light": "浅色",
+        "theme_restart_note": "重启应用以应用新主题。",
         "svg_no_size_title": "SVG：需要指定尺寸",
         "svg_no_size_msg": "SVG 文件没有固定分辨率。\n请在「自定义」模式下设置宽度和高度后再进行转换。",
     },
 }
-
-SETTINGS_FILE = os.path.join(os.path.expanduser("~"), ".formatix_image_converter_settings.json")
-
-
-def load_settings():
-    """Загружает настройки из JSON-файла в домашней директории."""
-    try:
-        with open(SETTINGS_FILE, encoding="utf-8") as f:
-            return json.load(f)
-    except Exception:
-        return {}
-
-
-def save_settings(data):
-    """Сохраняет настройки в JSON-файл."""
-    try:
-        with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-    except Exception:
-        pass
 
 
 def format_size(size_bytes):
@@ -638,6 +718,9 @@ class App(BaseClass):
             self._lang = self._settings["lang"]
         else:
             self._lang = detect_system_lang()
+        # Тема уже применена на уровне модуля (см. ACTIVE_THEME) до создания
+        # окна — здесь просто запоминаем текущее значение для отображения в UI.
+        self._theme = ACTIVE_THEME
         # Флаг "запоминать настройки" — хранится всегда, независимо от самого флага
         self._remember_settings = tk.BooleanVar(
             value=self._settings.get("remember_settings", True))
@@ -789,6 +872,7 @@ class App(BaseClass):
             pass
 
         self._settings["lang"]              = self._lang
+        self._settings["theme"]             = getattr(self, "_theme", "dark")
         self._settings["remember_settings"] = self._remember_settings.get()
 
         # На диск пишем всегда — но если remember выключен,
@@ -1285,10 +1369,13 @@ class App(BaseClass):
         bh  = ACCENT2 if accent else BG3
         fnt = ("Segoe UI", 11, "bold") if big else ("Segoe UI", 10)
         px, py = (20, 9) if big else (11, 5)
+        # На светлой теме не-accent кнопки при hover используют тёмный текст
+        # (BG3 светло-серый, белый текст на нём нечитаем)
+        fh = "#fff" if (accent or ACTIVE_THEME == "dark") else FG
         b = tk.Button(p, text=text, command=cmd, font=fnt, bg=bn, fg=fn,
-                      activebackground=bh, activeforeground="#fff",
+                      activebackground=bh, activeforeground=fh,
                       relief="flat", bd=0, padx=px, pady=py, cursor="hand2")
-        b.bind("<Enter>", lambda e, w=b: w.config(bg=bh, fg="#fff") if w["state"] != "disabled" else None)
+        b.bind("<Enter>", lambda e, w=b, _fh=fh: w.config(bg=bh, fg=_fh) if w["state"] != "disabled" else None)
         b.bind("<Leave>", lambda e, w=b: w.config(bg=bn, fg=fn)  if w["state"] != "disabled" else None)
         return b
 
@@ -2282,7 +2369,7 @@ class App(BaseClass):
         except Exception:
             pass
 
-        ww, wh = 300, 185
+        ww, wh = 300, 235
         win.update_idletasks()
         x = self.winfo_x() + (self.winfo_width() - ww) // 2
         y = self.winfo_y() + (self.winfo_height() - wh) // 2
@@ -2304,6 +2391,43 @@ class App(BaseClass):
                           state="readonly", font=("Segoe UI", 10))
         cb.set(LANGUAGES[self._lang])
         cb.pack(side="right")
+
+        # Выбор темы
+        theme_row = tk.Frame(win, bg=BG)
+        theme_row.pack(padx=24, fill="x", pady=(10, 0))
+
+        theme_lbl = tk.Label(theme_row, text=self.t("settings_theme"),
+                             font=("Segoe UI", 10), bg=BG, fg=FG2)
+        theme_lbl.pack(side="left")
+
+        theme_names = [self.t("theme_dark"), self.t("theme_light")]
+        theme_keys  = ["dark", "light"]
+        theme_cb = ttk.Combobox(theme_row, values=theme_names, width=14,
+                                state="readonly", font=("Segoe UI", 10))
+        theme_cb.set(self.t("theme_dark") if self._theme == "dark" else self.t("theme_light"))
+        theme_cb.pack(side="right")
+
+        # Создаем контейнер под уведомление здесь)
+        note_container = tk.Frame(win, bg=BG, height=35)
+        note_container.pack_propagate(False)
+
+        restart_note = tk.Label(note_container, text="",
+                                font=("Segoe UI", 8), bg=BG, fg=ACCENT2,
+                                wraplength=260, justify="center")
+        restart_note.pack(expand=True, fill="both")
+
+        def on_theme_select(e):
+            selected_name = theme_cb.get()
+            idx = theme_names.index(selected_name)
+            new_theme = theme_keys[idx]
+            if new_theme != self._theme:
+                self._theme = new_theme
+                self._save_settings()
+                restart_note.config(text=self.t("theme_restart_note"))
+            else:
+                restart_note.config(text="")
+
+        theme_cb.bind("<<ComboboxSelected>>", on_theme_select)
 
         # Чекбокс "Запоминать настройки"
         remember_row = tk.Frame(win, bg=BG, cursor="hand2")
@@ -2338,6 +2462,9 @@ class App(BaseClass):
         for w in (remember_row, remember_lbl, chk_canvas):
             w.bind("<Button-1>", _toggle_checkbox)
 
+        # Уведомление перезапуска после смены темы
+        note_container.pack(fill="x", pady=(6, 0))
+
         def on_lang_select(e):
             selected_name = cb.get()
             for code, name in LANGUAGES.items():
@@ -2350,13 +2477,22 @@ class App(BaseClass):
                     lang_lbl.config(text=self.t("settings_lang"))
                     remember_lbl.config(text=self.t("settings_remember"))
                     cl.config(text=self.t("settings_close"))
+                    theme_lbl.config(text=self.t("settings_theme"))
+                    theme_names_new = [self.t("theme_dark"), self.t("theme_light")]
+                    theme_cb.config(values=theme_names_new)
+                    theme_cb.set(theme_names_new[0] if self._theme == "dark" else theme_names_new[1])
+                    theme_names[:] = theme_names_new
+                    
+                    if restart_note.cget("text") != "":
+                        restart_note.config(text=self.t("theme_restart_note"))
                     break
 
         cb.bind("<<ComboboxSelected>>", on_lang_select)
 
+        # Кнопка закрытия
         cl = tk.Label(win, text=self.t("settings_close"),
                       font=("Segoe UI", 10), bg=BG, fg=FG2, cursor="hand2")
-        cl.pack(pady=(20, 0))
+        cl.pack(pady=(10, 15))
         cl.bind("<Button-1>", lambda e: win.destroy())
         cl.bind("<Enter>",    lambda e: cl.config(fg=FG))
         cl.bind("<Leave>",    lambda e: cl.config(fg=FG2))
