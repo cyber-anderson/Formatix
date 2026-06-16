@@ -12,7 +12,7 @@ Formatix is a fast, lightweight batch image converter for Windows. Convert, resi
 
 No file limits, no internet connection. 100% offline processing means your images are never uploaded, shared, or sent anywhere — everything stays on your computer.
 
-<img width="2329" height="797" alt="formatix_themes_showcase" src="https://github.com/user-attachments/assets/566e68d3-424c-4212-a1ca-cfe01c724fcd" />
+<img width="2286" height="797" alt="formatix_themes_showcase" src="https://github.com/user-attachments/assets/bb39361f-f6fe-47a8-8f32-92bde7073219" />
 
 ---
 
