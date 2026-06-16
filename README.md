@@ -30,6 +30,7 @@ https://github.com/user-attachments/assets/e02e780b-f78b-439b-9979-90f6eafb6b10
 - **5 interface languages** — English, Русский, Українська, Deutsch, 中文
 - **Automatic language detection**
 - **Remember settings between sessions**
+- **Light/Dark theme supports** — switch between dark and light in Settings.
 
 ---
 
