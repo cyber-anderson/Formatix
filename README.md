@@ -19,7 +19,7 @@ No file limits, no internet connection. 100% offline processing means your image
 - **8 output formats** — AVIF, WEBP, JPEG, HEIC/HEIF, PNG, BMP, TIFF, ICO
 - **Multi-threaded processing** — converts multiple images simultaneously for faster batch operations
 - **5 resize modes** — proportional scaling, smart crop and custom dimensions
-- **Color profile processing** — ICC-based color space conversion via Pillow ImageCms for high color accuracy.
+- **Color profile processing** — ICC-based color space conversion via Pillow ImageCms for high color accuracy
 - **Multi-size ICO generation** — automatically creates icon packs up to 256×256 px
 - **Adjustable quality settings** — JPEG, WEBP, AVIF and HEIC
 - **Drag & Drop support**
@@ -30,7 +30,7 @@ No file limits, no internet connection. 100% offline processing means your image
 - **5 interface languages** — English, Русский, Українська, Deutsch, 中文
 - **Automatic language detection**
 - **Remember settings between sessions**
-- **Light/Dark theme supports** — switch between dark and light in Settings.
+- **Light/Dark theme supports** — switch between dark and light in Settings
 
 ---
 
