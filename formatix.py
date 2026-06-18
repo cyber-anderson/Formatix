@@ -28,7 +28,7 @@ import random
 import json
 import ctypes
 import subprocess
-from PIL import Image
+from PIL import Image, ImageTk
 from PIL import ImageCms
 import io
 import re
@@ -184,7 +184,7 @@ FG3     = _palette["FG3"]
 BORDER  = _palette["BORDER"]
 
 APP_NAME = "Formatix Image Converter"
-VERSION  = "1.13.0"
+VERSION  = "1.14.0"
 
 # Константы анимации сердечка
 _HEART_BEAT1_MS   = 120
@@ -242,6 +242,8 @@ STRINGS = {
         "theme_restart_note": "Restart the app to apply the new theme.",
         "svg_no_size_title": "SVG: size required",
         "svg_no_size_msg": "SVG files have no fixed resolution.\nPlease set width and height in “Custom” mode before converting.",
+        "compare_btn": "🆚 Compare", "compare_title": "Comparison",
+        "compare_select": "Select files to compare",
     },
     "ru": {
         "add": "+ Добавить", "clear": "✕ Очистить",
@@ -285,6 +287,8 @@ STRINGS = {
         "theme_restart_note": "Перезапустите приложение, чтобы применить новую тему.",
         "svg_no_size_title": "SVG: требуется размер",
         "svg_no_size_msg": "SVG-файлы не имеют фиксированного разрешения.\nПожалуйста, задайте ширину и высоту в режиме «Пользовательский» перед конвертацией.",
+        "compare_btn": "🆚 Сравнить", "compare_title": "Сравнение",
+        "compare_select": "Выберите файлы для сравнения",
     },
     "uk": {
         "add": "+ Додати", "clear": "✕ Очистити",
@@ -329,6 +333,8 @@ STRINGS = {
         "theme_restart_note": "Перезапустіть застосунок, щоб застосувати нову тему.",
         "svg_no_size_title": "SVG: потрібен розмір",
         "svg_no_size_msg": "SVG-файли не мають фіксованої роздільності.\nБудь ласка, задайте ширину і висоту в режимі «Користувацький» перед конвертацією.",
+        "compare_btn": "🆚 Порівняти", "compare_title": "Порівняння",
+        "compare_select": "Виберіть файли для порівняння",
     },
     "de": {
         "add": "+ Hinzufügen", "clear": "✕ Leeren",
@@ -372,6 +378,8 @@ STRINGS = {
         "theme_restart_note": "Starten Sie die App neu, um das neue Design zu übernehmen.",
         "svg_no_size_title": "SVG: Größe erforderlich",
         "svg_no_size_msg": "SVG-Dateien haben keine feste Auflösung.\nBitte geben Sie Breite und Höhe im Modus „Benutzerdefiniert“ vor der Konvertierung ein.",
+        "compare_btn": "🆚 Vergleichen", "compare_title": "Vergleich",
+        "compare_select": "Dateien zum Vergleich auswählen",
     },
     "zh": {
         "add": "+ 添加", "clear": "✕ 清空",
@@ -415,12 +423,14 @@ STRINGS = {
         "theme_restart_note": "重启应用以应用新主题。",
         "svg_no_size_title": "SVG：需要指定尺寸",
         "svg_no_size_msg": "SVG 文件没有固定分辨率。\n请在「自定义」模式下设置宽度和高度后再进行转换。",
+        "compare_btn": "🆚 对比", "compare_title": "对比",
+        "compare_select": "选择要对比的文件",
     },
 }
 
 
 def format_size(size_bytes):
-    """Возвращает человекочитаемый размер файла (KB / MB)."""
+    """Возвращает читаемый размер файла (KB / MB)."""
     if size_bytes < 1024 * 1024:
         return f"{size_bytes / 1024:.1f} KB"
     return f"{size_bytes / (1024 * 1024):.2f} MB"
@@ -466,6 +476,91 @@ def get_svg_resolution_pure(path):
         pass
         
     return None, None
+
+
+def load_pil_for_display(path):
+    """Загружает изображение для отображения в окне сравнения.
+
+    Единая точка входа для CompareWindow._load_pil.  Поддерживает:
+    • SVG через resvg_py (рендер до 2048 px по длинной стороне)
+    • ICC-коррекцию растровых форматов (любой профиль → sRGB)
+    • CMYK → RGB до ICC (ImageCms не принимает CMYK напрямую)
+    • UTF-16 BOM, UTF-8 BOM и plain-UTF-8 для SVG
+
+    Вынесена на уровень модуля, чтобы её мог переиспользовать любой
+    компонент приложения без дублирования кода.
+    """
+    ext = os.path.splitext(path)[1].lower()
+    fallback = Image.new("RGB", (4, 4), (30, 30, 46))
+
+    # ── SVG: рендерим через resvg_py ─────────────────────────────────────────
+    if ext == ".svg" and SVG_AVAILABLE:
+        try:
+            with open(path, "rb") as _fb:
+                _raw = _fb.read()
+            if _raw[:2] in (b"\xff\xfe", b"\xfe\xff"):
+                svg_str = _raw.decode("utf-16")
+            elif _raw[:3] == b"\xef\xbb\xbf":
+                svg_str = _raw[3:].decode("utf-8", errors="replace")
+            else:
+                svg_str = _raw.decode("utf-8", errors="replace")
+
+            native_w, native_h = get_svg_resolution_pure(path)
+
+            # Ограничиваем размер рендера: большего для предпросмотра не нужно,
+            # а _recompute_fit потом сам масштабирует под холст через LANCZOS.
+            MAX_SVG = 2048
+            if native_w and native_h:
+                long_side = max(native_w, native_h)
+                if long_side > MAX_SVG:
+                    k = MAX_SVG / long_side
+                    render_w = max(1, int(native_w * k))
+                    render_h = max(1, int(native_h * k))
+                else:
+                    render_w, render_h = native_w, native_h
+                png_bytes = _resvg_py.svg_to_bytes(
+                    svg_string=svg_str, width=render_w, height=render_h)
+            else:
+                # SVG без явных размеров: resvg сам сохранит пропорции по viewBox
+                png_bytes = _resvg_py.svg_to_bytes(
+                    svg_string=svg_str, width=MAX_SVG, height=None)
+
+            img = Image.open(io.BytesIO(png_bytes))
+            img.load()
+            if img.mode not in ("RGB", "RGBA"):
+                img = img.convert("RGBA")
+            return img
+        except Exception:
+            return fallback
+
+    # ── Растровые форматы ─────────────────────────────────────────────────────
+    try:
+        img = Image.open(path)
+        img.load()
+
+        # CMYK → RGB до ICC-коррекции (ImageCms не принимает CMYK напрямую)
+        if img.mode == "CMYK":
+            img = img.convert("RGB")
+
+        # ICC-коррекция: приводим к sRGB для корректного отображения на экране
+        try:
+            icc_profile = img.info.get("icc_profile")
+            if icc_profile:
+                src_profile = ImageCms.ImageCmsProfile(io.BytesIO(icc_profile))
+                dst_profile = ImageCms.createProfile("sRGB")
+                out_mode = "RGBA" if img.mode in ("RGBA", "PA", "LA") else "RGB"
+                img = ImageCms.profileToProfile(
+                    img, src_profile, dst_profile, outputMode=out_mode)
+        except Exception:
+            pass  # если ICC не распознан — показываем как есть
+
+        # Нормализуем итоговый режим
+        if img.mode not in ("RGB", "RGBA"):
+            img = img.convert("RGBA" if "A" in img.mode else "RGB")
+
+        return img
+    except Exception:
+        return fallback
 
 
 def get_image_res_str(path):
@@ -700,6 +795,626 @@ class FancySlider(tk.Frame):
             self.entry_var.set("—")
 
 
+# ── ОКНО СРАВНЕНИЯ ────────────────────────────────────────────────────────────
+
+class CompareWindow(tk.Toplevel):
+    """Полноэкранное окно сравнения исходного и результирующего изображений.
+
+    Реализует слайдер-разделитель (split-view): пользователь тянет линию
+    влево/вправо и видит левую часть (оригинал) и правую (результат).
+
+    Также поддерживает увеличение (ползунок зума 100–400%) и панорамирование.
+
+    Производительность: дорогой ресемплинг (LANCZOS) больших исходных
+    изображений выполняется только при открытии окна, при изменении его
+    размера и при изменении зума — результат кэшируется в self._src_fit /
+    self._dst_fit. При перетаскивании разделителя или панорамировании
+    выполняется только дешёвая операция обрезки (crop) уже готовых
+    изображений, а объекты на холсте не удаляются и пересоздаются, а лишь
+    двигаются/обновляются (coords / itemconfigure). Кроме того, частые
+    события <B1-Motion> объединяются через after_idle в один кадр
+    перерисовки, чтобы очередь событий не накапливалась и интерфейс не
+    "отставал" от курсора.
+    """
+
+    _DIVIDER_W = 3   # ширина линии разделителя в пикселях
+    _RESIZE_DEBOUNCE_MS = 80  # задержка пересчёта при изменении размера окна / зума
+    _ZOOM_MIN_PCT = 100
+    _ZOOM_MAX_PCT = 400
+    _ZOOM_WHEEL_STEP_PCT = 10  # шаг изменения зума колесом мыши
+
+    def __init__(self, master, src_path, dst_path, title,
+                 bg, bg2, bg3, fg, fg2, fg3, accent, border, card, index=0):
+        super().__init__(master)
+        self.title(title)
+        self.configure(bg=bg)
+        
+        # Разворачиваем окно (максимизируем), оставляя панель задач видимой
+        try:
+            self.state("zoomed")  # Стандартный способ для Windows
+        except tk.TclError:
+            self.attributes("-zoomed", True)  # Резервный вариант для Linux
+
+        # Оставляем только закрытие окна по кнопке Escape
+        self.bind("<Escape>", lambda e: self.destroy())
+        # Переключение между файлами для сравнения — стрелками с клавиатуры
+        self.bind("<Left>",  lambda e: self._navigate(-1))
+        self.bind("<Right>", lambda e: self._navigate(1))
+
+        self._bg = bg; self._bg2 = bg2; self._bg3 = bg3
+        self._fg = fg; self._fg2 = fg2; self._fg3 = fg3
+        self._accent = accent; self._border = border; self._card = card
+        self._src_path = src_path
+        self._dst_path = dst_path
+
+        # Индекс текущей пары "файл / результат" в общих списках главного окна
+        # (self.master._files / self.master._results) — используется для
+        # переключения на предыдущий/следующий файл кнопками ◀ / ▶.
+        self._pair_index = index
+
+        # Имена файлов для подписей
+        self._src_name = os.path.basename(src_path)
+        self._dst_name = os.path.basename(dst_path)
+
+        # Загружаем изображения
+        self._src_pil = self._load_pil(src_path)
+        self._dst_pil = self._load_pil(dst_path)
+
+        # Позиция разделителя (0.0 – 1.0 от ширины холста)
+        self._split = 0.5
+        self._dragging_divider = False
+        self._panning_lmb = False
+
+        # Кэш изображений, уже подогнанных под текущий размер холста и зум.
+        # Пересчитывается только в _recompute_fit() — НЕ на каждый кадр.
+        # При зуме > 100% self._img_w/_img_h могут превышать размер холста —
+        # видимая часть (viewport) вычисляется в _redraw() на основе текущего
+        # панорамирования (self._pan_x/_pan_y).
+        self._src_fit = None
+        self._dst_fit = None
+        self._img_w = 0
+        self._img_h = 0
+        self._canvas_w = 0
+        self._canvas_h = 0
+        # Кэш viewport-параметров последнего _redraw — нужен для корректного
+        # хит-теста и зажима разделителя в границы картинки (_on_mouse_move,
+        # _on_press, _update_split_from_x).
+        self._off_x = 0   # отступ слева до начала картинки (letterbox)
+        self._vw    = 0   # ширина видимой части картинки на холсте
+
+        # Зум и панорамирование
+        self._zoom = 1.0          # 1.0 = "по размеру окна", максимум — _ZOOM_MAX_PCT/100
+        self._zoom_var = tk.IntVar(value=100) # Переменная для FancySlider
+        self._zoom_var.trace_add("write", lambda *a: self._on_zoom_var_change())
+
+        self._pan_x = 0.0
+        self._pan_y = 0.0
+        self._pan_last_x = 0
+        self._pan_last_y = 0
+        self._zoom_job = None
+
+        # id объектов на холсте — создаются один раз, далее только двигаются
+        self._left_item = None
+        self._right_item = None
+        self._divider_item = None
+        self._handle_item = None
+        self._handle_text_item = None
+        self._lbl_before_bg = None
+        self._lbl_before_text = None
+        self._lbl_after_bg = None
+        self._lbl_after_text = None
+
+        # Ссылки на PhotoImage, чтобы избежать сборки мусора
+        self._left_photo = None
+        self._right_photo = None
+
+        # Отложенный пересчёт при ресайзе + флаг "кадр уже запланирован"
+        self._resize_job = None
+        self._redraw_pending = False
+
+        self._build_ui()
+        self.after(50, self._recompute_fit_and_redraw)   # ждём финального размера окна
+
+    # ── загрузка ──────────────────────────────────────────────────────────────
+
+    def _load_pil(self, path):
+        """Делегирует загрузку в модульную функцию load_pil_for_display.
+
+        Вся логика (SVG, ICC, CMYK) живёт в одном месте и переиспользуется
+        другими компонентами без дублирования кода.
+        """
+        return load_pil_for_display(path)
+
+    # ── построение UI ─────────────────────────────────────────────────────────
+
+    def _build_ui(self):
+        # Нижняя панель с заголовком
+        top = tk.Frame(self, bg=self._bg2, pady=6)
+        tk.Frame(self, bg=self._border, height=1).pack(fill="x", side="bottom")
+        top.pack(fill="x", side="bottom")
+
+        self._title_lbl = tk.Label(top, text=f"{self._src_name}   ⇄   {self._dst_name}",
+                 font=("Segoe UI", 11, "bold"),
+                 bg=self._bg2, fg=self._fg)
+        self._title_lbl.pack(side="left", padx=16)
+
+        # Кнопки переключения на предыдущий / следующий файл сравнения —
+        # по центру верхней панели.
+        nav_frame = tk.Frame(top, bg=self._bg2)
+        nav_frame.place(relx=0.5, rely=0.5, anchor="center")
+
+        self._nav_prev_btn = tk.Label(nav_frame, text="◀", font=("Segoe UI", 12, "bold"),
+                                      bg=self._bg2, fg=self._fg2, cursor="hand2", padx=10)
+        self._nav_prev_btn.pack(side="left")
+        self._nav_prev_btn.bind("<Button-1>", lambda e: self._navigate(-1))
+        self._nav_prev_btn.bind("<Enter>", lambda e: self._on_nav_hover(self._nav_prev_btn, True))
+        self._nav_prev_btn.bind("<Leave>", lambda e: self._on_nav_hover(self._nav_prev_btn, False))
+
+        self._nav_counter_lbl = tk.Label(nav_frame, text="", font=("Segoe UI", 9),
+                                         bg=self._bg2, fg=self._fg3, padx=8)
+        self._nav_counter_lbl.pack(side="left")
+
+        self._nav_next_btn = tk.Label(nav_frame, text="▶", font=("Segoe UI", 12, "bold"),
+                                      bg=self._bg2, fg=self._fg2, cursor="hand2", padx=10)
+        self._nav_next_btn.pack(side="left")
+        self._nav_next_btn.bind("<Button-1>", lambda e: self._navigate(1))
+        self._nav_next_btn.bind("<Enter>", lambda e: self._on_nav_hover(self._nav_next_btn, True))
+        self._nav_next_btn.bind("<Leave>", lambda e: self._on_nav_hover(self._nav_next_btn, False))
+
+        self._update_nav_buttons()
+
+        # Ползунок зума (100% – 400%)
+        zoom_frame = tk.Frame(top, bg=self._bg2)
+        zoom_frame.pack(side="right", padx=(0, 18))
+
+        tk.Label(zoom_frame, text="🔍", font=("Segoe UI", 10),
+                 bg=self._bg2, fg=self._fg2).pack(side="left", padx=(0, 4))
+
+        self._zoom_slider = FancySlider(
+            zoom_frame, from_=self._ZOOM_MIN_PCT, to=self._ZOOM_MAX_PCT,
+            variable=self._zoom_var, width=140
+        )
+        self._zoom_slider.pack(side="left")
+
+        self._zoom_lbl = tk.Label(zoom_frame, text="100%", font=("Segoe UI", 9),
+                                  bg=self._bg2, fg=self._fg2, width=4, anchor="w")
+        self._zoom_lbl.pack(side="left", padx=(6, 0))
+
+
+        # Основной холст
+        self._canvas = tk.Canvas(self, bg=self._bg, highlightthickness=0,
+                                 cursor="hand2")
+        self._canvas.pack(fill="both", expand=True)
+
+        self._canvas.bind("<Configure>",       self._on_resize)
+        self._canvas.bind("<Motion>",          self._on_mouse_move) # Отслеживание движения мыши
+        self._canvas.bind("<ButtonPress-1>",   self._on_press)
+        self._canvas.bind("<B1-Motion>",       self._on_drag)
+        self._canvas.bind("<ButtonRelease-1>", self._on_release)
+
+        # Зум колесом мыши прямо на холсте (Windows/macOS: <MouseWheel>,
+        # Linux: <Button-4>/<Button-5>)
+        self._canvas.bind("<MouseWheel>", self._on_mousewheel_zoom)
+        self._canvas.bind("<Button-4>",   lambda e: self._on_mousewheel_zoom(e, direction=1))
+        self._canvas.bind("<Button-5>",   lambda e: self._on_mousewheel_zoom(e, direction=-1))
+
+    # ── события ───────────────────────────────────────────────────────────────
+
+    def _on_resize(self, e):
+        # Debounce: при серии событий <Configure> (например, во время плавного
+        # изменения размера окна) пересчитываем подогнанные изображения только
+        # один раз — после того как пользователь перестал менять размер.
+        if self._resize_job is not None:
+            self.after_cancel(self._resize_job)
+        self._resize_job = self.after(self._RESIZE_DEBOUNCE_MS,
+                                       self._recompute_fit_and_redraw)
+
+    def _on_mouse_move(self, e):
+        # Если мы уже что-то тянем, курсор не меняем
+        if self._dragging_divider or self._panning_lmb:
+            return
+        cw = self._canvas_w or self._canvas.winfo_width()
+        # divider_x — реальное положение линии на холсте (зажатое в картинку)
+        divider_x = max(self._off_x,
+                        min(self._off_x + self._vw if self._vw else cw,
+                            int(cw * self._split)))
+        # Курсор-стрелки только если мышь над линией И внутри картинки
+        img_left  = self._off_x
+        img_right = self._off_x + self._vw if self._vw else cw
+        if img_left <= e.x <= img_right and abs(e.x - divider_x) <= 15:
+            self._canvas.config(cursor="sb_h_double_arrow")
+        else:
+            self._canvas.config(cursor="hand2")
+
+    def _on_press(self, e):
+        cw = self._canvas_w or self._canvas.winfo_width()
+        divider_x = max(self._off_x,
+                        min(self._off_x + self._vw if self._vw else cw,
+                            int(cw * self._split)))
+        img_left  = self._off_x
+        img_right = self._off_x + self._vw if self._vw else cw
+        # Захват разделителя — только если клик внутри картинки и рядом с линией
+        if img_left <= e.x <= img_right and abs(e.x - divider_x) <= 15:
+            self._dragging_divider = True
+            self._canvas.config(cursor="sb_h_double_arrow")
+        else:
+            # Иначе начинаем панорамирование (тянем холст)
+            self._panning_lmb = True
+            self._pan_last_x = e.x
+            self._pan_last_y = e.y
+            self._canvas.config(cursor="fleur")
+
+    def _on_drag(self, e):
+        if self._dragging_divider:
+            self._update_split_from_x(e.x)
+        elif self._panning_lmb:
+            dx = e.x - self._pan_last_x
+            dy = e.y - self._pan_last_y
+            self._pan_last_x = e.x
+            self._pan_last_y = e.y
+            self._pan_x -= dx
+            self._pan_y -= dy
+            self._request_redraw()
+
+    def _on_release(self, e):
+        self._dragging_divider = False
+        self._panning_lmb = False
+        self._on_mouse_move(e) # Обновляем курсор после отпускания
+
+    def _update_split_from_x(self, x):
+        cw = self._canvas_w or self._canvas.winfo_width()
+        if cw <= 0:
+            return
+        # Зажимаем x в границы картинки — чтобы _split никогда не кодировал
+        # позицию за пределами изображения (letterbox-отступы слева/справа).
+        # _off_x и _vw актуальны с последнего _redraw; при первом вызове до
+        # первого рендера оба равны 0 и зажатие работает как раньше.
+        img_left  = self._off_x
+        img_right = self._off_x + self._vw if self._vw else cw
+        x_clamped = max(img_left, min(img_right, x))
+        self._split = x_clamped / cw
+        self._request_redraw()
+
+    # ── переключение между файлами для сравнения ────────────────────────────
+
+    def _find_pair(self, start_idx, direction):
+        """Ищет соседний валидный индекс пары "файл / результат" в указанном
+        направлении (-1 — назад, +1 — вперёд), начиная от start_idx (сам
+        start_idx не проверяется). Валидной считается пара, где оба файла
+        (исходный и результат) существуют, а конвертация была успешной —
+        то есть та же логика, что и в App._open_compare().
+        Возвращает (idx, src_path, dst_path) или None, если такой пары нет.
+        """
+        files = getattr(self.master, "_files", [])
+        results = getattr(self.master, "_results", [])
+        total = min(len(files), len(results))
+        i = start_idx + direction
+        while 0 <= i < total:
+            src = files[i]
+            try:
+                dst, ok = results[i]
+            except (TypeError, ValueError):
+                i += direction
+                continue
+            if ok and dst and src and os.path.exists(dst) and os.path.exists(src):
+                return i, src, dst
+            i += direction
+        return None
+
+    def _navigate(self, direction):
+        btn = self._nav_prev_btn if direction < 0 else self._nav_next_btn
+        if not getattr(btn, "_enabled", True):
+            return
+        found = self._find_pair(self._pair_index, direction)
+        if found is None:
+            return
+        idx, src_path, dst_path = found
+        self._pair_index = idx
+        self._load_pair(src_path, dst_path)
+
+    def _load_pair(self, src_path, dst_path):
+        """Загружает новую пару изображений в уже открытое окно сравнения,
+        сохраняя текущий зум/панораму/позицию разделителя — удобно для
+        быстрого просмотра одного и того же участка на разных файлах.
+        """
+        self._src_path = src_path
+        self._dst_path = dst_path
+        self._src_name = os.path.basename(src_path)
+        self._dst_name = os.path.basename(dst_path)
+        self._src_pil = self._load_pil(src_path)
+        self._dst_pil = self._load_pil(dst_path)
+
+        # Сбрасываем кэш подогнанных изображений — пересчитаем под новую пару
+        self._src_fit = None
+        self._dst_fit = None
+
+        if hasattr(self, "_title_lbl"):
+            self._title_lbl.config(text=f"{self._src_name}   ⇄   {self._dst_name}")
+
+        self._update_nav_buttons()
+        self._recompute_fit_and_redraw()
+
+    def _update_nav_buttons(self):
+        if not hasattr(self, "_nav_prev_btn"):
+            return
+        has_prev = self._find_pair(self._pair_index, -1) is not None
+        has_next = self._find_pair(self._pair_index, 1) is not None
+        self._set_nav_btn_state(self._nav_prev_btn, has_prev)
+        self._set_nav_btn_state(self._nav_next_btn, has_next)
+
+        files = getattr(self.master, "_files", [])
+        results = getattr(self.master, "_results", [])
+        total = min(len(files), len(results))
+        if total and 0 <= self._pair_index < total:
+            self._nav_counter_lbl.config(text=f"{self._pair_index + 1} / {total}")
+        else:
+            self._nav_counter_lbl.config(text="")
+
+    def _set_nav_btn_state(self, btn, enabled):
+        btn._enabled = enabled
+        btn.config(fg=self._fg2 if enabled else self._bg3,
+                   cursor="hand2" if enabled else "arrow")
+
+    def _on_nav_hover(self, btn, hovering):
+        if not getattr(btn, "_enabled", True):
+            return
+        btn.config(fg=self._fg if hovering else self._fg2)
+
+    # ── зум ───────────────────────────────────────────────────────────────────
+
+    def _on_zoom_var_change(self):
+        try:
+            pct = float(self._zoom_var.get())
+        except (TypeError, ValueError, tk.TclError):
+            pct = 100.0
+            
+        pct = max(self._ZOOM_MIN_PCT, min(self._ZOOM_MAX_PCT, pct))
+        self._zoom = pct / 100.0
+        if hasattr(self, "_zoom_lbl"):
+            self._zoom_lbl.config(text=f"{int(round(pct))}%")
+
+        # Отложенный пересчёт (debounce)
+        if self._zoom_job is not None:
+            self.after_cancel(self._zoom_job)
+        self._zoom_job = self.after(self._RESIZE_DEBOUNCE_MS, self._recompute_fit_and_redraw)
+
+    def _on_mousewheel_zoom(self, e, direction=None):
+        if direction is None:
+            direction = 1 if e.delta > 0 else -1
+        current = self._zoom_var.get()
+        new_pct = current + direction * self._ZOOM_WHEEL_STEP_PCT
+        new_pct = max(self._ZOOM_MIN_PCT, min(self._ZOOM_MAX_PCT, new_pct))
+        self._zoom_var.set(int(round(new_pct))) # Изменение переменной автоматически обновит FancySlider
+
+    def _request_redraw(self):
+        """Объединяет частые события движения мыши в один кадр перерисовки.
+
+        Без этого каждое отдельное событие <B1-Motion> ставило бы в очередь
+        собственный вызов _redraw(), и при быстром перетаскивании очередь
+        событий Tk копится быстрее, чем успевает рисоваться холст — отсюда
+        ощутимое "отставание" линии сравнения от курсора. after_idle
+        гарантирует, что за один проход цикла обработки событий будет
+        выполнена только одна (последняя по времени) перерисовка.
+        """
+        if self._redraw_pending:
+            return
+        self._redraw_pending = True
+        self.after_idle(self._do_redraw)
+
+    def _do_redraw(self):
+        self._redraw_pending = False
+        self._redraw()
+
+    # ── пересчёт подогнанных изображений (дорогая операция) ─────────────────────
+
+    def _recompute_fit_and_redraw(self):
+        self._resize_job = None
+        self._zoom_job = None
+        self._recompute_fit()
+        self._redraw()
+
+    def _recompute_fit(self):
+        """Масштабирует оригинальные изображения под текущий размер холста и зум.
+
+        Выполняется только при открытии окна, при изменении размера окна и
+        при изменении зума — НЕ при каждом движении мыши/панорамировании.
+        Это самая дорогая операция (LANCZOS ресемплинг полноразмерных
+        изображений), поэтому она кэшируется в self._src_fit/self._dst_fit.
+        Short-circuit: если холст и зум не изменились — возвращаемся сразу.
+        Сама позиция видимой области (off_x/off_y, панорамирование)
+        вычисляется отдельно в _redraw() — она не требует пересчёта картинки.
+        """
+        c = self._canvas
+        cw = c.winfo_width()
+        ch = c.winfo_height()
+        if cw < 2 or ch < 2:
+            return
+
+        iw, ih = self._src_pil.size
+        base_scale = min(cw / iw, ch / ih) if iw and ih else 1
+        scale = base_scale * self._zoom
+        nw, nh = max(1, int(iw * scale)), max(1, int(ih * scale))
+
+        # Пропускаем пересчёт если холст и целевой размер не изменились
+        if (cw == self._canvas_w and ch == self._canvas_h
+                and nw == self._img_w and nh == self._img_h
+                and self._src_fit is not None):
+            return
+
+        self._canvas_w, self._canvas_h = cw, ch
+        self._img_w, self._img_h = nw, nh
+
+        self._src_fit = self._prepare_for_display(
+            self._src_pil.resize((nw, nh), Image.Resampling.LANCZOS))
+        self._dst_fit = self._prepare_for_display(
+            self._dst_pil.resize((nw, nh), Image.Resampling.LANCZOS))
+
+    def _prepare_for_display(self, img):
+        """Конвертирует RGBA → RGB с фоном цвета холста для отображения.
+
+        ImageTk.PhotoImage значительно быстрее работает с RGB, чем с RGBA —
+        это критично, поскольку PhotoImage создаётся на каждый кадр движения
+        слайдера. Цвет фона берётся через winfo_rgb(), что корректно работает
+        как с hex (#1e1e2e), так и с именованными цветами Tk ("black", "gray10").
+        """
+        if img.mode != "RGBA":
+            return img.convert("RGB") if img.mode != "RGB" else img
+        try:
+            # winfo_rgb возвращает (r, g, b) в диапазоне 0–65535
+            r, g, b = self.winfo_rgb(self._bg)
+            bg_color = (r >> 8, g >> 8, b >> 8)
+        except Exception:
+            bg_color = (30, 30, 46)
+        bg = Image.new("RGB", img.size, bg_color)
+        bg.paste(img, mask=img.split()[3])
+        return bg
+
+    # ── отрисовка (лёгкая операция — без ресемплинга) ────────────────────────────
+
+    def _redraw(self):
+        if self._src_fit is None or self._canvas_w < 2:
+            self._recompute_fit()
+            if self._src_fit is None:
+                return
+
+        cw, ch = self._canvas_w, self._canvas_h
+        img_w, img_h = self._img_w, self._img_h
+
+        # Видимая область (viewport) внутри (возможно увеличенного) изображения.
+        # Если изображение меньше холста по какой-то оси — оно центрируется
+        # (letterbox), как и раньше при зуме 100%. Если больше — заполняет
+        # холст по этой оси целиком, и доступно панорамирование в её пределах.
+        vw = min(cw, img_w)
+        vh = min(ch, img_h)
+        max_pan_x = max(0, img_w - vw)
+        max_pan_y = max(0, img_h - vh)
+        self._pan_x = max(0, min(max_pan_x, self._pan_x))
+        self._pan_y = max(0, min(max_pan_y, self._pan_y))
+        view_x, view_y = int(self._pan_x), int(self._pan_y)
+
+        off_x = (cw - vw) // 2
+        off_y = (ch - vh) // 2
+
+        # Кэшируем для _on_mouse_move / _on_press / _update_split_from_x
+        self._off_x = off_x
+        self._vw    = vw
+
+        split_x = int(cw * self._split)
+
+        # Позиция разделителя зажата в границы картинки: линия никогда не
+        # уходит в пустой letterbox-отступ слева/справа.
+        divider_x = max(off_x, min(off_x + vw, split_x))
+
+        # Только обрезка уже готовых изображений — никакого ресемплинга.
+        # Это дешёвая операция даже для очень больших исходных фото, и не
+        # зависит от того, насколько увеличено изображение, так как обрезаем
+        # не весь увеличенный кадр, а только видимую (размером с холст) часть.
+        left_px = max(0, min(vw, split_x - off_x))
+
+        # Двойной буфер PhotoImage: держим ссылку на предыдущие объекты до тех
+        # пор, пока не обновим Canvas — иначе Tk может обратиться к уже
+        # удалённому PhotoImage и получить мерцание или падение.
+        prev_left  = self._left_photo
+        prev_right = self._right_photo
+
+        if left_px > 0 and vh > 0:
+            left_crop = self._src_fit.crop(
+                (view_x, view_y, view_x + left_px, view_y + vh))
+            self._left_photo = ImageTk.PhotoImage(left_crop)
+        else:
+            self._left_photo = None
+
+        if left_px < vw and vh > 0:
+            right_crop = self._dst_fit.crop(
+                (view_x + left_px, view_y, view_x + vw, view_y + vh))
+            self._right_photo = ImageTk.PhotoImage(right_crop)
+        else:
+            self._right_photo = None
+
+        self._draw_left(off_x, off_y)
+        self._draw_right(off_x, off_y, left_px)
+        self._draw_divider(divider_x, ch)
+        self._draw_labels(off_x, off_y, vw)
+
+        # После обновления Canvas старые PhotoImage можно отпустить
+        del prev_left, prev_right
+
+    def _draw_left(self, off_x, off_y):
+        c = self._canvas
+        if self._left_photo is None:
+            if self._left_item is not None:
+                c.itemconfigure(self._left_item, state="hidden")
+            return
+        if self._left_item is None:
+            self._left_item = c.create_image(off_x, off_y, anchor="nw",
+                                              image=self._left_photo)
+        else:
+            c.coords(self._left_item, off_x, off_y)
+            c.itemconfigure(self._left_item, image=self._left_photo, state="normal")
+
+    def _draw_right(self, off_x, off_y, left_px):
+        c = self._canvas
+        if self._right_photo is None:
+            if self._right_item is not None:
+                c.itemconfigure(self._right_item, state="hidden")
+            return
+        x = off_x + left_px
+        if self._right_item is None:
+            self._right_item = c.create_image(x, off_y, anchor="nw",
+                                               image=self._right_photo)
+        else:
+            c.coords(self._right_item, x, off_y)
+            c.itemconfigure(self._right_item, image=self._right_photo, state="normal")
+
+    def _draw_divider(self, split_x, ch):
+        c = self._canvas
+        if self._divider_item is None:
+            self._divider_item = c.create_line(split_x, 0, split_x, ch,
+                                                fill=self._accent, width=self._DIVIDER_W)
+        else:
+            c.coords(self._divider_item, split_x, 0, split_x, ch)
+
+    def _draw_labels(self, off_x, off_y, img_w):
+        c = self._canvas
+        pad = 12
+        # label_y — независимая переменная, не перезаписывает параметр off_y
+        label_y = self._canvas_h // 2 - pad - 8
+
+        # Текст берётся из переводов на каждый кадр — при смене языка
+        # надписи обновляются немедленно (fix: else-ветка тоже обновляет текст)
+        was_txt    = self.master.t("was").replace(":", "").upper()
+        became_txt = self.master.t("became").replace(":", "").upper()
+
+        bx0, by0 = off_x + pad - 4,  label_y + pad - 2
+        bx1, by1 = off_x + pad + 64, label_y + pad + 18
+        tx,  ty  = off_x + pad + 30, label_y + pad + 8
+        if self._lbl_before_bg is None:
+            self._lbl_before_bg   = c.create_rectangle(bx0, by0, bx1, by1,
+                                                        fill=self._bg2, outline="",
+                                                        stipple="gray50")
+            self._lbl_before_text = c.create_text(tx, ty, text=was_txt,
+                                                   font=("Segoe UI", 9, "bold"),
+                                                   fill=self._fg2, anchor="center")
+        else:
+            c.coords(self._lbl_before_bg,   bx0, by0, bx1, by1)
+            c.coords(self._lbl_before_text, tx, ty)
+            c.itemconfigure(self._lbl_before_text, text=was_txt)
+
+        ax0, ay0 = off_x + img_w - pad - 68, label_y + pad - 2
+        ax1, ay1 = off_x + img_w - pad + 4,  label_y + pad + 18
+        atx, aty = off_x + img_w - pad - 32, label_y + pad + 8
+        if self._lbl_after_bg is None:
+            self._lbl_after_bg   = c.create_rectangle(ax0, ay0, ax1, ay1,
+                                                       fill=self._bg2, outline="",
+                                                       stipple="gray50")
+            self._lbl_after_text = c.create_text(atx, aty, text=became_txt,
+                                                  font=("Segoe UI", 9, "bold"),
+                                                  fill=self._fg2, anchor="center")
+        else:
+            c.coords(self._lbl_after_bg,   ax0, ay0, ax1, ay1)
+            c.coords(self._lbl_after_text, atx, aty)
+            c.itemconfigure(self._lbl_after_text, text=became_txt)
+
 # ── ГЛАВНОЕ ОКНО ──────────────────────────────────────────────────────────────
 BaseClass = TkinterDnD.Tk if HAS_DND else tk.Tk
 
@@ -765,7 +1480,7 @@ class App(BaseClass):
 
         remember = self._settings.get("remember_settings", True)
         if remember:
-            saved_fmt  = self._settings.get("fmt", "WEBP")
+            saved_fmt  = self._settings.get("fmt", "AVIF")
             saved_qual = self._settings.get("quality", 85)
             if saved_fmt in FORMATS:
                 self._fmt.set(saved_fmt)
@@ -973,6 +1688,9 @@ class App(BaseClass):
         self._clear_btn = self._btn(br, self.t("clear"), self._clear)
         self._clear_btn.pack(side="left")
 
+        self._compare_btn = self._btn(br, self.t("compare_btn"), self._open_compare)
+        self._compare_btn.pack(side="left", padx=(6, 0))
+
         self._clbl = tk.Label(br, text="", font=("Segoe UI", 10), bg=BG, fg=FG2)
         self._clbl.pack(side="left", padx=10)
 
@@ -1080,7 +1798,7 @@ class App(BaseClass):
 
         # ФОРМАТ
         _fmt_blk, self._format_lbl, _fmt_wf = _ctrl_block(ctrl_row, self.t("format_lbl"))
-        self._fmt = tk.StringVar(value="WEBP")
+        self._fmt = tk.StringVar(value="AVIF")
         _fmt_cb = ttk.Combobox(_fmt_wf, textvariable=self._fmt, values=FORMATS,
                                width=7, state="readonly", font=("Segoe UI", 10))
         _fmt_cb.pack()
@@ -1204,7 +1922,6 @@ class App(BaseClass):
         inner.pack(fill="both", expand=True)
         inner.columnconfigure(0, weight=1)
         inner.rowconfigure(0, weight=1)
-
         if is_result:
             cols = ("status", "name", "res", "size")
             tree = ttk.Treeview(inner, columns=cols, show="headings", style="Treeview")
@@ -1750,6 +2467,8 @@ class App(BaseClass):
         self._add_btn.config(text=self.t("add"))
         self._clear_btn.config(text=self.t("clear"))
 
+        self._compare_btn.config(text=self.t("compare_btn"))
+
         self._src_panel_lbl.config(text=self.t("src_panel"))
         self._dst_panel_lbl.config(text=self.t("dst_panel"))
 
@@ -1814,6 +2533,37 @@ class App(BaseClass):
             path = path_list[idx]
             if os.path.exists(path):
                 open_path(path)
+
+    def _open_compare(self):
+        """Открывает окно сравнения исходного и результирующего файла."""
+        # Получаем выделенный файл в левой панели
+        sel_src = self._tv_src.selection()
+        sel_dst = self._tv_dst.selection()
+
+        if not sel_src or not sel_dst:
+            messagebox.showinfo(APP_NAME, self.t("compare_select"))
+            return
+
+        idx_src = self._tv_src.index(sel_src[0])
+        idx_dst = self._tv_dst.index(sel_dst[0])
+
+        if idx_src >= len(self._files):
+            return
+        src_path = self._files[idx_src]
+
+        if idx_dst >= len(self._results):
+            return
+        dst_path, ok = self._results[idx_dst]
+        if not ok or not dst_path or not os.path.exists(dst_path):
+            messagebox.showinfo(APP_NAME, self.t("compare_select"))
+            return
+        if not os.path.exists(src_path):
+            messagebox.showinfo(APP_NAME, self.t("compare_select"))
+            return
+
+        CompareWindow(self, src_path, dst_path,
+                      self.t("compare_title"), BG, BG2, BG3,
+                      FG, FG2, FG3, ACCENT, BORDER, CARD, index=idx_src)
 
     def _open_result(self):
         """Открывает выбранный результирующий файл двойным кликом."""
