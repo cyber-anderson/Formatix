@@ -31,6 +31,7 @@ No file limits, no internet connection. 100% offline processing means your image
 - **Automatic language detection**
 - **Remember settings between sessions**
 - **Light/Dark theme supports** — switch between dark and light in Settings
+- **File comparison tool** - allowing users to easily compare the source file with the processed result.
 
 ---
 
