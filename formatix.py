@@ -184,7 +184,7 @@ FG3     = _palette["FG3"]
 BORDER  = _palette["BORDER"]
 
 APP_NAME = "Formatix Image Converter"
-VERSION  = "1.14.0"
+VERSION  = "1.14.1"
 
 # Константы анимации сердечка
 _HEART_BEAT1_MS   = 120
@@ -243,7 +243,7 @@ STRINGS = {
         "svg_no_size_title": "SVG: size required",
         "svg_no_size_msg": "SVG files have no fixed resolution.\nPlease set width and height in “Custom” mode before converting.",
         "compare_btn": "🆚 Compare", "compare_title": "Comparison",
-        "compare_select": "Select files to compare",
+        "compare_no_files": "No files to compare",
     },
     "ru": {
         "add": "+ Добавить", "clear": "✕ Очистить",
@@ -288,7 +288,7 @@ STRINGS = {
         "svg_no_size_title": "SVG: требуется размер",
         "svg_no_size_msg": "SVG-файлы не имеют фиксированного разрешения.\nПожалуйста, задайте ширину и высоту в режиме «Пользовательский» перед конвертацией.",
         "compare_btn": "🆚 Сравнить", "compare_title": "Сравнение",
-        "compare_select": "Выберите файлы для сравнения",
+        "compare_no_files": "Файлы для сравнения отсутствуют",
     },
     "uk": {
         "add": "+ Додати", "clear": "✕ Очистити",
@@ -334,7 +334,7 @@ STRINGS = {
         "svg_no_size_title": "SVG: потрібен розмір",
         "svg_no_size_msg": "SVG-файли не мають фіксованої роздільності.\nБудь ласка, задайте ширину і висоту в режимі «Користувацький» перед конвертацією.",
         "compare_btn": "🆚 Порівняти", "compare_title": "Порівняння",
-        "compare_select": "Виберіть файли для порівняння",
+        "compare_no_files": "Файли для порівняння відсутні",
     },
     "de": {
         "add": "+ Hinzufügen", "clear": "✕ Leeren",
@@ -379,7 +379,7 @@ STRINGS = {
         "svg_no_size_title": "SVG: Größe erforderlich",
         "svg_no_size_msg": "SVG-Dateien haben keine feste Auflösung.\nBitte geben Sie Breite und Höhe im Modus „Benutzerdefiniert“ vor der Konvertierung ein.",
         "compare_btn": "🆚 Vergleichen", "compare_title": "Vergleich",
-        "compare_select": "Dateien zum Vergleich auswählen",
+        "compare_no_files": "Keine Dateien zum Vergleich vorhanden",
     },
     "zh": {
         "add": "+ 添加", "clear": "✕ 清空",
@@ -424,7 +424,7 @@ STRINGS = {
         "svg_no_size_title": "SVG：需要指定尺寸",
         "svg_no_size_msg": "SVG 文件没有固定分辨率。\n请在「自定义」模式下设置宽度和高度后再进行转换。",
         "compare_btn": "🆚 对比", "compare_title": "对比",
-        "compare_select": "选择要对比的文件",
+        "compare_no_files": "没有可对比的文件",
     },
 }
 
@@ -1472,6 +1472,12 @@ class App(BaseClass):
         self._total_src_bytes = 0
         self._total_dst_bytes = 0
         self._gui_queue       = queue.Queue()
+        # Увеличивается на каждый новый запуск конвертации и при «Очистить»
+        # во время активной конвертации. Воркер штампует каждое сообщение в
+        # очередь своим batch_id — _listen_queue игнорирует сообщения с
+        # устаревшим batch_id, чтобы результаты «осиротевшего» (уже
+        # очищенного пользователем) запуска не оживали в UI задним числом.
+        self._batch_id        = 0
 
         self._loading = True  # блокирует _save_settings во время инициализации
         self._style_ttk()
@@ -1965,21 +1971,61 @@ class App(BaseClass):
                   lambda e: tree.yview_scroll(int(-1 * (e.delta / 120)), "units"))
         return card, tree, lbl
 
+    def _reorder_paired_list(self, old_order, paired_list, paired_tree, heading_cols):
+        """Применяет ту же перестановку строк к «парному» списку/дереву.
+
+        self._files и self._results связаны по индексу: элемент i одного
+        списка должен соответствовать элементу i другого (исходный файл и
+        его результат конвертации). Если отсортировать только одну из двух
+        таблиц по заголовку столбца, эта связь молча ломается — окно
+        сравнения и переключение ◀/▶ в нём начнут показывать случайные
+        пары. Чтобы этого не происходило, при сортировке одной таблицы мы
+        синхронно переставляем строки второй той же самой перестановкой.
+
+        old_order — список старых индексов в новом порядке: old_order[i] —
+        индекс, который теперь оказался на позиции i.
+
+        Если длины списков расходятся (например, конвертация ещё не
+        запускалась, или файлы добавлялись уже после неё) — синхронизировать
+        нечего, строгого 1:1 соответствия и так не было; в этом случае
+        просто выходим, не трогая парный список.
+        """
+        if len(paired_list) != len(old_order):
+            return
+
+        new_paired = [paired_list[i] for i in old_order]
+        paired_list[:] = new_paired
+
+        children = paired_tree.get_children()
+        if len(children) != len(old_order):
+            return
+        for new_pos, old_pos in enumerate(old_order):
+            paired_tree.move(children[old_pos], "", new_pos)
+
+        # Парное дерево было переставлено «вынужденно», а не по своему
+        # столбцу — сбрасываем его собственный индикатор сортировки, чтобы
+        # стрелка в заголовке не врала о реальном порядке строк.
+        paired_tree._sort_state = {}
+        for col, base_text in heading_cols.items():
+            paired_tree.heading(col, text=base_text)
+
     def _bind_sort_commands(self):
         """Привязывает команды сортировки к заголовкам обоих деревьев.
         Вызывается после _build и после смены языка."""
         # ── Исходные файлы ────────────────────────────────────────────────────
         def _sort_src(col_id):
+            if self._running:
+                return  # не сортируем во время конвертации — индексы могут съехать
             asc = not self._tv_src._sort_state.get(col_id, True)
             self._tv_src._sort_state = {col_id: asc}
 
-            # Собираем пары (значение_для_сортировки, iid, путь_к_файлу)
+            # Собираем четвёрки (значение_для_сортировки, iid, путь, старый_индекс)
             rows = []
             for iid in self._tv_src.get_children():
                 idx = self._tv_src.index(iid)
                 val = self._tv_src.set(iid, col_id)
                 path = self._files[idx] if idx < len(self._files) else ""
-                rows.append((val, iid, path))
+                rows.append((val, iid, path, idx))
 
             def _sort_key(item):
                 v = item[0]
@@ -2004,12 +2050,23 @@ class App(BaseClass):
 
             rows.sort(key=_sort_key, reverse=not asc)
 
-            # Перемещаем строки в дереве и синхронизируем self._files
+            # Перемещаем строки в дереве и синхронизируем self._files,
+            # запоминая перестановку (old_order) для парного списка результатов
+            old_order = []
             new_files = []
-            for i, (_, iid, path) in enumerate(rows):
+            for i, (_, iid, path, old_idx) in enumerate(rows):
                 self._tv_src.move(iid, "", i)
                 new_files.append(path)
+                old_order.append(old_idx)
             self._files[:] = new_files
+
+            # Поддерживаем парность с self._results: переставляем результаты
+            # той же перестановкой, чтобы self._files[i] и self._results[i]
+            # по-прежнему относились к одному и тому же файлу.
+            self._reorder_paired_list(old_order, self._results, self._tv_dst, {
+                "status": self.t("col_status"), "name": self.t("col_filename"),
+                "res":    self.t("col_res"),    "size": self.t("col_size"),
+            })
 
             # Обновляем индикатор сортировки в заголовке
             arrow = "▲" if asc else "▼"
@@ -2036,7 +2093,7 @@ class App(BaseClass):
                 res_entry = self._results[idx] if idx < len(self._results) else (None, False)
                 tags = self._tv_dst.item(iid, "tags")
                 all_vals = self._tv_dst.item(iid, "values")
-                rows.append((val, iid, res_entry, tags, all_vals))
+                rows.append((val, iid, res_entry, tags, all_vals, idx))
 
             def _sort_key(item):
                 v = item[0]
@@ -2062,11 +2119,19 @@ class App(BaseClass):
 
             rows.sort(key=_sort_key, reverse=not asc)
 
+            old_order = []
             new_results = []
-            for i, (_, iid, res_entry, _, __) in enumerate(rows):
+            for i, (_, iid, res_entry, _, __, old_idx) in enumerate(rows):
                 self._tv_dst.move(iid, "", i)
                 new_results.append(res_entry)
+                old_order.append(old_idx)
             self._results[:] = new_results
+
+            # Поддерживаем парность с self._files той же перестановкой
+            self._reorder_paired_list(old_order, self._files, self._tv_src, {
+                "name": self.t("col_filename"),
+                "res":  self.t("col_res"), "size": self.t("col_size"),
+            })
 
             arrow = "▲" if asc else "▼"
             for c in ("status", "name", "res", "size"):
@@ -2379,7 +2444,24 @@ class App(BaseClass):
             })
 
     def _clear(self):
-        """Очищает списки файлов и результатов."""
+        """Очищает списки файлов и результатов.
+
+        Если в этот момент идёт конвертация, физически прервать фоновый
+        поток мгновенно нельзя — он продолжит работать до своей следующей
+        проверки self._stop_requested. Поэтому помимо самой остановки мы
+        увеличиваем self._batch_id: все сообщения, которые «осиротевший»
+        воркер всё ещё отправит в self._gui_queue, окажутся подписаны
+        старым batch_id и будут проигнорированы в _listen_queue — иначе
+        строки результатов уже отменённой конвертации «оживали» бы в только
+        что очищенном списке.
+        """
+        if self._running:
+            self._stop_requested = True
+            self._batch_id += 1
+            self._running = False
+            self._cbtn.config(state="normal", text=self.t("convert_btn"))
+            self._open_dir_btn.config(fg=FG3)
+
         with self._data_lock:
             self._files.clear()
             self._converted_cache.clear()
@@ -2392,6 +2474,7 @@ class App(BaseClass):
             self._tv_dst.delete(item)
         self._prog["value"] = 0
         self._status.set(self.t("cleared"))
+        self._status_err.set("")
         self._clbl.config(text="")
         self._upd()
 
@@ -2535,30 +2618,74 @@ class App(BaseClass):
                 open_path(path)
 
     def _open_compare(self):
-        """Открывает окно сравнения исходного и результирующего файла."""
-        # Получаем выделенный файл в левой панели
+        """Открывает окно сравнения с умной логикой выбора пары.
+
+        1. Нет файлов совсем → сообщение "Файлы для сравнения отсутствуют"
+        2. Файлы есть, ничего не выделено → открываем первую пару
+        3. Выделен только исходный → берём результат с тем же индексом
+        4. Выделен только результат → берём исходный с тем же индексом
+        5. Выделены оба → используем оба как есть (даже если не пара)
+        """
+        # ── Пункт 1: нет файлов совсем ───────────────────────────────────────
+        has_src = len(self._files) > 0
+        # Есть ли хотя бы один успешный результат
+        has_dst = any(ok and dst and os.path.exists(dst)
+                      for dst, ok in self._results)
+        if not has_src or not has_dst:
+            messagebox.showinfo(APP_NAME, self.t("compare_no_files"))
+            return
+
         sel_src = self._tv_src.selection()
         sel_dst = self._tv_dst.selection()
 
-        if not sel_src or not sel_dst:
-            messagebox.showinfo(APP_NAME, self.t("compare_select"))
-            return
+        # ── Определяем idx_src ───────────────────────────────────────────────
+        if sel_src:
+            idx_src = self._tv_src.index(sel_src[0])
+        elif sel_dst:
+            # Пункт 4: выделен результат — берём исходный с тем же индексом
+            idx_src = self._tv_dst.index(sel_dst[0])
+        else:
+            # Пункт 2: ничего не выделено — первая пара
+            idx_src = 0
 
-        idx_src = self._tv_src.index(sel_src[0])
-        idx_dst = self._tv_dst.index(sel_dst[0])
+        # ── Определяем idx_dst ───────────────────────────────────────────────
+        if sel_dst:
+            idx_dst = self._tv_dst.index(sel_dst[0])
+        elif sel_src:
+            # Пункт 3: выделен исходный — результат с тем же индексом
+            idx_dst = self._tv_src.index(sel_src[0])
+        else:
+            # Пункт 2: ничего не выделено — первая пара
+            idx_dst = 0
 
-        if idx_src >= len(self._files):
-            return
-        src_path = self._files[idx_src]
+        # Если idx_dst указывает на неуспешный/отсутствующий результат —
+        # ищем ближайший валидный начиная с idx_dst
+        def _nearest_valid_dst(start):
+            for i in range(start, len(self._results)):
+                dst, ok = self._results[i]
+                if ok and dst and os.path.exists(dst):
+                    return i, dst
+            for i in range(0, start):
+                dst, ok = self._results[i]
+                if ok and dst and os.path.exists(dst):
+                    return i, dst
+            return None, None
 
         if idx_dst >= len(self._results):
-            return
+            idx_dst = 0
         dst_path, ok = self._results[idx_dst]
         if not ok or not dst_path or not os.path.exists(dst_path):
-            messagebox.showinfo(APP_NAME, self.t("compare_select"))
-            return
+            idx_dst, dst_path = _nearest_valid_dst(idx_dst)
+            if dst_path is None:
+                messagebox.showinfo(APP_NAME, self.t("compare_no_files"))
+                return
+
+        # Проверяем исходный файл
+        if idx_src >= len(self._files):
+            idx_src = 0
+        src_path = self._files[idx_src]
         if not os.path.exists(src_path):
-            messagebox.showinfo(APP_NAME, self.t("compare_select"))
+            messagebox.showinfo(APP_NAME, self.t("compare_no_files"))
             return
 
         CompareWindow(self, src_path, dst_path,
@@ -2719,12 +2846,19 @@ class App(BaseClass):
         with self._data_lock:
             files_snapshot = list(self._files)
 
+        # Новый batch_id «подписывает» все сообщения этого запуска — если
+        # пользователь нажмёт «Очистить» во время конвертации, _clear()
+        # увеличит batch_id и все дальнейшие сообщения этого воркера будут
+        # проигнорированы как устаревшие (см. _listen_queue).
+        self._batch_id += 1
+        batch_id = self._batch_id
+
         threading.Thread(
             target=self._convert_worker,
             args=(files_snapshot, out_dir,
                   self._fmt.get(), self._qual.get(),
                   mode_key, target_w, target_h,
-                  self._overwrite_confirmed),
+                  self._overwrite_confirmed, batch_id),
             daemon=True).start()
 
     # ── очередь событий GUI ───────────────────────────────────────────────────
@@ -2735,6 +2869,16 @@ class App(BaseClass):
             while True:
                 task   = self._gui_queue.get_nowait()
                 action = task.get("action")
+
+                # insert_result/progress/finish помечены batch_id того запуска,
+                # который их породил. Если пользователь успел нажать «Очистить»
+                # во время конвертации, self._batch_id уже увеличен — значит
+                # это сообщения «осиротевшего» воркера и их нужно отбросить,
+                # иначе они задним числом оживят уже очищенные списки.
+                if action in ("insert_result", "progress", "finish"):
+                    if task.get("batch_id") != self._batch_id:
+                        self._gui_queue.task_done()
+                        continue
 
                 if action == "insert_result":
                     tag          = "ok" if task["success"] else "fail"
@@ -3022,8 +3166,13 @@ class App(BaseClass):
             counter += 1
 
     def _convert_worker(self, files_snapshot, out_dir, fmt, quality, mode_key,
-                        target_w, target_h, allow_overwrite=False):
-        """Фоновый рабочий поток: конвертирует все файлы параллельно."""
+                        target_w, target_h, allow_overwrite=False, batch_id=0):
+        """Фоновый рабочий поток: конвертирует все файлы параллельно.
+
+        batch_id штампуется на каждое сообщение в self._gui_queue — это
+        позволяет _listen_queue отличить сообщения текущего запуска от
+        сообщений уже отменённого пользователем через «Очистить» запуска.
+        """
         # fmt, quality, mode_key переданы из GUI-потока как снимок значений —
         # не читаем self._fmt / self._qual / self._resize_mode из фонового потока.
         ext        = ".jpg" if fmt == "JPEG" else f".{fmt.lower()}"
@@ -3065,6 +3214,7 @@ class App(BaseClass):
                     "action":   "progress",
                     "status":   f"{done}/{total}  {bname[:12]}",
                     "prog_val": round(done / total * 100),
+                    "batch_id": batch_id,
                 })
                 # Проверяем флаг остановки после каждого завершённого файла
                 if self._stop_requested:
@@ -3092,6 +3242,7 @@ class App(BaseClass):
                 "out_path":   res["out_path"],
                 "success":    res["success"],
                 "size_bytes": res["f_size"],
+                "batch_id":   batch_id,
             })
 
         self._gui_queue.put({
@@ -3101,6 +3252,7 @@ class App(BaseClass):
             "err":     err_cnt,
             "dir":     out_dir,
             "stopped": self._stop_requested,
+            "batch_id": batch_id,
         })
 
     # ── окна настроек и доната ────────────────────────────────────────────────
