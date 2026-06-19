@@ -1509,6 +1509,12 @@ class App(BaseClass):
         self._total_src_bytes = 0
         self._total_dst_bytes = 0
         self._gui_queue       = queue.Queue()
+        # Кэш результатов get_svg_resolution_pure по пути файла: path → (w, h).
+        # Без него _has_svg_without_size() заново читала бы с диска и парсила
+        # КАЖДЫЙ SVG в списке при каждом _upd() (на каждый Add/Drop/смену
+        # языка), даже если ни один из этих SVG не менялся — на больших
+        # списках это ощутимо подвешивало UI. Сбрасывается в _clear().
+        self._svg_size_cache  = {}
         # Увеличивается на каждый новый запуск конвертации и при «Очистить»
         # во время активной конвертации. Воркер штампует каждое сообщение в
         # очередь своим batch_id — _listen_queue игнорирует сообщения с
@@ -2502,6 +2508,7 @@ class App(BaseClass):
         with self._data_lock:
             self._files.clear()
             self._converted_cache.clear()
+        self._svg_size_cache.clear()
         self._results.clear()
         self._total_src_bytes = 0
         self._total_dst_bytes = 0
@@ -2516,12 +2523,23 @@ class App(BaseClass):
         self._upd()
 
     def _has_svg_without_size(self):
-        """Проверяет, есть ли в списке SVG-файлы, у которых не удалось определить разрешение."""
+        """Проверяет, есть ли в списке SVG-файлы, у которых не удалось определить разрешение.
+
+        Результат get_svg_resolution_pure кэшируется по пути файла
+        (self._svg_size_cache), чтобы не перечитывать с диска и не
+        парсить регуляркой ВСЕ SVG в списке при каждом вызове — раньше
+        это происходило на каждый Add/Drop/смену языка и подвешивало UI
+        пропорционально количеству SVG в списке.
+        """
         if not SVG_AVAILABLE:
             return False
         for p in self._files:
             if os.path.splitext(p)[1].lower() == ".svg":
-                w, h = get_svg_resolution_pure(p)
+                if p in self._svg_size_cache:
+                    w, h = self._svg_size_cache[p]
+                else:
+                    w, h = get_svg_resolution_pure(p)
+                    self._svg_size_cache[p] = (w, h)
                 if not w or not h:
                     return True # Нашли проблемный файл
         return False
@@ -2985,7 +3003,10 @@ class App(BaseClass):
                         self._status_lbl.config(fg=GREEN)
                     self._status_err.set(f"✘ {task['err']}" if task["err"] else "")
                     self._cbtn.config(state="normal", text=self.t("convert_btn"))
-                    self._open_dir_btn.config(fg=GREEN)
+                    # Подсвечиваем кнопку «Открыть папку» как успешную только если
+                    # хотя бы один файл реально сконвертировался — иначе кнопка
+                    # выглядела зелёной (как при успехе) даже при 100% ошибок.
+                    self._open_dir_btn.config(fg=GREEN if task["ok"] > 0 else FG3)
                     self._running = False
                     self._stop_requested = False
 
