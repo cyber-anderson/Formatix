@@ -1077,6 +1077,34 @@ class CompareWindow(tk.Toplevel):
 
     # ── переключение между файлами для сравнения ────────────────────────────
 
+    def update_lang(self):
+        """Обновляет все надписи окна сравнения при смене языка в App."""
+        try:
+            # Заголовок окна
+            self.title(self.master.t("compare_title"))
+            # Подпись с именами файлов не меняется — это имена файлов
+            # Кнопка закрытия
+            if hasattr(self, "_close_btn"):
+                self._close_btn.config(text=self.master.t("close_btn")
+                                       if "close_btn" in (STRINGS.get(self.master._lang) or {})
+                                       else "✕ Close")
+            # Подсказка
+            if hasattr(self, "_hint_lbl"):
+                self._hint_lbl.config(text=self.master.t("compare_hint")
+                                      if "compare_hint" in (STRINGS.get(self.master._lang) or {})
+                                      else "Drag the divider  ·  Esc to close")
+            # Подписи BEFORE/AFTER на нижней полосе
+            if hasattr(self, "_lbl_before"):
+                was = self.master.t("was").replace(":", "").upper()
+                self._lbl_before.config(text=f"◀  {was}")
+            if hasattr(self, "_lbl_after"):
+                became = self.master.t("became").replace(":", "").upper()
+                self._lbl_after.config(text=f"{became}  ▶")
+            # Перерисовываем canvas чтобы обновить надписи BEFORE/AFTER на изображении
+            self._request_redraw()
+        except Exception:
+            pass
+
     def _find_pair(self, start_idx, direction):
         """Ищет соседний валидный индекс пары "файл / результат" в указанном
         направлении (-1 — назад, +1 — вперёд), начиная от start_idx (сам
@@ -1324,7 +1352,11 @@ class CompareWindow(tk.Toplevel):
         else:
             self._left_photo = None
 
-        if left_px < vw and vh > 0:
+        # right_px — ширина правой части: от split до правого края картинки.
+        # Когда left_px == 0 (разделитель у левого края) правая часть
+        # покрывает всю картинку целиком — картинка не исчезает.
+        right_px = vw - left_px
+        if right_px > 0 and vh > 0:
             right_crop = self._dst_fit.crop(
                 (view_x + left_px, view_y, view_x + vw, view_y + vh))
             self._right_photo = ImageTk.PhotoImage(right_crop)
@@ -1342,9 +1374,13 @@ class CompareWindow(tk.Toplevel):
     def _draw_left(self, off_x, off_y):
         c = self._canvas
         if self._left_photo is None:
-            if self._left_item is not None:
-                c.itemconfigure(self._left_item, state="hidden")
+            # Убираем скрытие _left_item (state="hidden").
+            # Из-за особенностей Tkinter скрытие нижнего слоя принудительно 
+            # заливает область фоном, затирая правое изображение поверх него.
+            # Так как правое изображение (с более высоким Z-index) при left_px == 0 
+            # и так растянуто на всю ширину экрана, оно само идеально перекроет эту область.
             return
+        
         if self._left_item is None:
             self._left_item = c.create_image(off_x, off_y, anchor="nw",
                                               image=self._left_photo)
@@ -1468,6 +1504,7 @@ class App(BaseClass):
         self._out_dir         = tk.StringVar(value="")
         self._running         = False
         self._stop_requested  = False
+        self._compare_win     = None  # ссылка на открытое окно сравнения
         self._converted_cache = {}
         self._total_src_bytes = 0
         self._total_dst_bytes = 0
@@ -2510,6 +2547,14 @@ class App(BaseClass):
             s = ("файл"   if n % 10 == 1 and n % 100 != 11 else
                  "файли"  if 2 <= n % 10 <= 4 and not (11 <= n % 100 <= 14) else "файлів")
             self._clbl.config(text=f"{n} {s}")
+        elif self._lang == "de":
+            # В немецком всего две формы: единственное и множественное число.
+            s = "Datei" if n == 1 else "Dateien"
+            self._clbl.config(text=f"{n} {s}")
+        elif self._lang == "zh":
+            # В китайском у существительных нет грамматического числа —
+            # форма "个文件" не меняется в зависимости от количества.
+            self._clbl.config(text=f"{n} 个文件")
         else:
             self._clbl.config(text=f"{n} {'file' if n == 1 else 'files'}")
 
@@ -2604,6 +2649,16 @@ class App(BaseClass):
 
         self._upd()
 
+        # Если открыто окно сравнения — обновляем язык в нём
+        if self._compare_win is not None:
+            try:
+                if self._compare_win.winfo_exists():
+                    self._compare_win.update_lang()
+                else:
+                    self._compare_win = None
+            except Exception:
+                self._compare_win = None
+
     # ── открытие файлов ───────────────────────────────────────────────────────
 
     def _open_item(self, tree, path_list):
@@ -2649,6 +2704,9 @@ class App(BaseClass):
             idx_src = 0
 
         # ── Определяем idx_dst ───────────────────────────────────────────────
+        # forced_dst_sel: True если пользователь явно выделил результат 
+        # ИЛИ исходный файл (в обоих случаях ожидается конкретная пара)
+        forced_dst_sel = bool(sel_dst) or bool(sel_src)
         if sel_dst:
             idx_dst = self._tv_dst.index(sel_dst[0])
         elif sel_src:
@@ -2658,8 +2716,6 @@ class App(BaseClass):
             # Пункт 2: ничего не выделено — первая пара
             idx_dst = 0
 
-        # Если idx_dst указывает на неуспешный/отсутствующий результат —
-        # ищем ближайший валидный начиная с idx_dst
         def _nearest_valid_dst(start):
             for i in range(start, len(self._results)):
                 dst, ok = self._results[i]
@@ -2675,11 +2731,20 @@ class App(BaseClass):
             idx_dst = 0
         dst_path, ok = self._results[idx_dst]
         if not ok or not dst_path or not os.path.exists(dst_path):
+            # Пользователь принудительно выбрал файл с ошибкой — сообщаем
+            if forced_dst_sel:
+                messagebox.showwarning(APP_NAME, self.t("compare_no_files"))
+                return
+            # Автоматический выбор — тихо ищем ближайший валидный
             idx_dst, dst_path = _nearest_valid_dst(idx_dst)
             if dst_path is None:
                 messagebox.showinfo(APP_NAME, self.t("compare_no_files"))
                 return
-
+            # --- ДОБАВЛЕННАЯ СТРОКА ---
+            # Синхронизируем индекс исходника с найденным рабочим результатом,
+            # чтобы открылась правильная пара файлов
+            idx_src = idx_dst
+            
         # Проверяем исходный файл
         if idx_src >= len(self._files):
             idx_src = 0
@@ -2688,9 +2753,10 @@ class App(BaseClass):
             messagebox.showinfo(APP_NAME, self.t("compare_no_files"))
             return
 
-        CompareWindow(self, src_path, dst_path,
-                      self.t("compare_title"), BG, BG2, BG3,
-                      FG, FG2, FG3, ACCENT, BORDER, CARD, index=idx_src)
+        self._compare_win = CompareWindow(self, src_path, dst_path,
+                                          self.t("compare_title"), BG, BG2, BG3,
+                                          FG, FG2, FG3, ACCENT, BORDER, CARD,
+                                          index=idx_src)
 
     def _open_result(self):
         """Открывает выбранный результирующий файл двойным кликом."""
