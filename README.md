@@ -9,7 +9,7 @@ Formatix Image Converter
   <strong>A fast, lightweight, and 100% offline batch image converter and resizer for Windows.</strong>
 </p>
 
-Formatix Image Converter is a powerful desktop application designed to batch convert, resize, and optimize images in just a few clicks. Whether you need to convert Apple's HEIC formats to JPG, turn SVG vector graphics into PNG, or compress heavy images into next-generation AVIF and WEBP formats, Formatix handles it all instantly.
+Formatix Image Converter is a powerful desktop application designed to batch convert, resize, and optimize images in just a few clicks. Whether you need to convert Apple's HEIC formats to JPG, turn SVG vector graphics into PNG, or compress heavy images into next-generation AVIF and WEBP formats, this program handles it all instantly.
 
 **No file limits, no internet connection required.** 100% offline processing means your images are never uploaded, shared, or sent to third-party servers. Everything stays securely on your computer. Enjoy complete privacy and a strictly ad-free experience.
 
@@ -18,7 +18,7 @@ Formatix Image Converter is a powerful desktop application designed to batch con
 ---
 
 ## Popular Conversions Supported
-Formatix Image Converter is built to handle the most common formatting headaches automatically:
+Formatix Image Converter is built to handle the most common formatting headaches:
 * **HEIC to JPG:** Easily view and share Apple iPhone photos (HEIF) on Windows as standard JPEGs.
 * **SVG to PNG:** Rasterize scalable vector graphics with perfect transparency, or convert them to WEBP.
 * **WEBP to JPG:** Convert heavy next-gen web formats (including AVIF) back to standard desktop formats.
@@ -35,7 +35,7 @@ Formatix Image Converter is built to handle the most common formatting headaches
 * **Color Profile Management** — ICC-based color space conversion via Pillow ImageCms guarantees high color accuracy.
 * **Multi-size ICO Generation** — automatically creates Windows icon packs.
 * **Adjustable Quality Settings** — fine-tune compression levels for JPEG, WEBP, AVIF, and HEIC.
-* **Smart Drag & Drop** — instantly add folders or individual files.
+* **Drag & Drop** — instantly add folders or individual files.
 * **Smart Conversion Cache** — automatically skips files already converted with identical settings to save time.
 * **Safe Processing** — features atomic file writes (prevents partially written output files) and overwrite protection.
 * **Built-in Image Comparison** — easily compare the source file with the processed result side-by-side.
