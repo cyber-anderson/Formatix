@@ -31,18 +31,7 @@ Formatix Image Converter is a powerful desktop application designed to batch con
 **✅ Open source** — auditable, no hidden telemetry, no ads, ever  
 **✅ 100% offline** — files never leave your computer  
 **✅ Modern UI** — dark and light theme, drag & drop, clean interface
-
----
-
-## Popular Conversions Supported
-Formatix Image Converter is built to handle the most common formatting headaches and web optimization tasks:
-* **HEIC to JPG:** Easily view and share Apple iPhone photos (HEIF) on Windows as standard JPEGs.
-* **WEBP to JPG:** Convert widely used web-optimized images back to universally supported desktop formats.
-* **JPG to AVIF:** Compress heavy JPEGs into next-generation web formats to drastically reduce file sizes.
-* **JPG to WEBP:** Optimize your standard photos for faster website loading and better web performance.
-* **AVIF to JPG:** Turn highly compressed web images back into standard, editable JPEGs.
-* **SVG to PNG:** Rasterize scalable vector graphics with perfect transparency.
-* **PNG to ICO:** Automatically generate multi-size Windows icon packs (up to 256×256 px) from your images.
+**✅ Popular Conversions Supported** — **HEIC to JPG** , **WEBP to JPG** , **JPG to AVIF** , **JPG to WEBP** , **AVIF to JPG:** , **SVG to PNG:** , **PNG to ICO** , [and more](#supported-input-formats)
 
 ---
 
