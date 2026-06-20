@@ -22,21 +22,29 @@ Formatix Image Converter is a powerful desktop application designed to batch con
 
 <img width="2286" height="797" alt="Formatix Image Converter free offline batch image converter for Windows — dark and light themes, drag and drop, HEIC AVIF WEBP PNG JPEG conversion UI" src="https://github.com/user-attachments/assets/bb39361f-f6fe-47a8-8f32-92bde7073219" />
 
-
 ---
-## Why Formatix?
 
-| | Formatix | Online converters | IrfanView / XnConvert |
-|---|---|---|---|
-| Works offline | ✅ | ❌ | ✅ |
-| No file size limit | ✅ | ❌ | ✅ |
-| AVIF & HEIC support | ✅ | Partial | Partial |
-| No watermarks | ✅ | ❌ | ✅ |
-| No registration | ✅ | Partial | ✅ |
-| Smart crop & resize | ✅ | ❌ | Partial |
-| Free | ✅ | Partial | ✅ |
+## Why Formatix Image Converter?
+
+| | Formatix Image Converter | Online converters | IrfanView | XnConvert |
+|---|---|---|---|---|
+| Works offline | ✅ | ❌ | ✅ | ✅ |
+| No file size limit | ✅ | ❌ | ✅ | ✅ |
+| AVIF output support | ✅ | Partial | ❌ read-only via plugin | ❌ |
+| HEIC output support | ✅ | Partial | ❌ read-only via plugin | ❌ |
+| No plugins needed | ✅ | — | ❌ requires plugin pack | ✅ |
+| Free for commercial use | ✅ GPL-3.0 | Partial | ❌ paid license required | ⚠️ non-commercial only |
+| Modern UI | ✅ | ✅ | ❌ UI from the 90s | ✅ |
+| Open source | ✅ | ❌ | ❌ closed source | ❌ closed source |
+| No watermarks | ✅ | ❌ | ✅ | ✅ |
+| Smart crop & resize | ✅ | ❌ | ❌ | ✅ |
+| Dark / Light theme | ✅ | — | ❌ | ❌ |
+| No registration | ✅ | Partial | ✅ | ✅ |
 
 Your files **never leave your computer.** No uploads, no accounts, no ads — ever.
+
+Your files **never leave your computer.** No uploads, no accounts, no ads — ever.
+
 ---
 
 ## Popular Conversions Supported
