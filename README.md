@@ -30,7 +30,7 @@ Formatix Image Converter is a powerful desktop application designed to batch con
 **✅ Free for everyone** — including commercial use, licensed under GPL-3.0  
 **✅ Open source** — auditable, no hidden telemetry, no ads, ever  
 **✅ 100% offline** — files never leave your computer  
-**✅ Modern UI** — dark and light theme, drag & drop, clean interface
+**✅ Modern UI** — dark and light theme, drag & drop, clean interface  
 **✅ Popular Conversions Supported** — **HEIC to JPG** , **WEBP to JPG** , **JPG to AVIF** , **JPG to WEBP** , **AVIF to JPG:** , **SVG to PNG:** , **PNG to ICO** , [and more](#supported-input-formats)
 
 ---
