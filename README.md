@@ -111,7 +111,7 @@ You can enable or disable settings persistence in the Settings window. When disa
 
 ## ❤️ Support the Project
 
-If this offline batch image converter saved you time or effort, a small donation to support further development is always appreciated!
+If Formatix Image Converter saved you time or effort, a small donation to support further development is always appreciated!
 
 | Currency | Network | Address |
 |----------|---------|---------|
