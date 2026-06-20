@@ -20,7 +20,7 @@ This powerful desktop application designed to batch convert, resize, and optimiz
 
 **No file limits, no internet connection required.** All processing happens locally on your computer, ensuring complete privacy with zero uploads to external servers. Everything stays securely on your computer. Enjoy complete privacy and a strictly ad-free experience.
 
-<img width="2286" height="797" alt="Dark and light themes, drag and drop, HEIC AVIF WEBP PNG JPEG conversion UI" src="https://github.com/user-attachments/assets/bb39361f-f6fe-47a8-8f32-92bde7073219" />
+<img width="2286" height="797" alt="Light and dark themes, drag and drop, HEIC AVIF WEBP PNG JPEG conversion UI" src="https://github.com/user-attachments/assets/bb39361f-f6fe-47a8-8f32-92bde7073219" />
 
 ---
 
