@@ -16,7 +16,7 @@ Formatix Image Converter
   <strong>A fast, lightweight, and 100% offline batch image converter and resizer for Windows.</strong>
 </p>
 
-Formatix Image Converter is a powerful desktop application designed to batch convert, resize, and optimize images in just a few clicks. Whether you need to convert Apple's HEIC formats to JPG, turn SVG vector graphics into PNG, or compress heavy images into next-generation AVIF and WEBP formats, this program handles it all instantly.
+This powerful desktop application designed to batch convert, resize, and optimize images in just a few clicks. Whether you need to convert Apple's HEIC formats to JPG, turn SVG vector graphics into PNG, or compress heavy images into next-generation AVIF and WEBP formats, this program handles it all instantly.
 
 **No file limits, no internet connection required.** All processing happens locally on your computer, ensuring complete privacy with zero uploads to external servers. Everything stays securely on your computer. Enjoy complete privacy and a strictly ad-free experience.
 
