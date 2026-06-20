@@ -1,10 +1,17 @@
+
+
 <h1 align="center">
 <sub>
 <img src="icon.ico" height="38" width="38" alt="Formatix Offline Image Converter for Windows">
 </sub>
 Formatix Image Converter
-</h1>
 
+
+![Version](https://img.shields.io/github/v/release/cyber-anderson/Formatix)
+![License](https://img.shields.io/github/license/cyber-anderson/Formatix)
+![Platform](https://img.shields.io/badge/platform-Windows-blue)
+![Python](https://img.shields.io/badge/python-3.10%2B-blue)
+</h1>
 <p align="center">
   <strong>A fast, lightweight, and 100% offline batch image converter and resizer for Windows.</strong>
 </p>
@@ -13,8 +20,23 @@ Formatix Image Converter is a powerful desktop application designed to batch con
 
 **No file limits, no internet connection required.** 100% offline processing means your images are never uploaded, shared, or sent to third-party servers. Everything stays securely on your computer. Enjoy complete privacy and a strictly ad-free experience.
 
-<img width="2286" height="797" alt="Formatix Image Converter - Dark and Light Themes Showcase - Batch Processing UI" src="https://github.com/user-attachments/assets/bb39361f-f6fe-47a8-8f32-92bde7073219" />
+<img width="2286" height="797" alt="Formatix Image Converter free offline batch image converter for Windows — dark and light themes, drag and drop, HEIC AVIF WEBP PNG JPEG conversion UI" src="https://github.com/user-attachments/assets/bb39361f-f6fe-47a8-8f32-92bde7073219" />
 
+
+---
+## Why Formatix?
+
+| | Formatix | Online converters | IrfanView / XnConvert |
+|---|---|---|---|
+| Works offline | ✅ | ❌ | ✅ |
+| No file size limit | ✅ | ❌ | ✅ |
+| AVIF & HEIC support | ✅ | Partial | Partial |
+| No watermarks | ✅ | ❌ | ✅ |
+| No registration | ✅ | Partial | ✅ |
+| Smart crop & resize | ✅ | ❌ | Partial |
+| Free | ✅ | Partial | ✅ |
+
+Your files **never leave your computer.** No uploads, no accounts, no ads — ever.
 ---
 
 ## Popular Conversions Supported
@@ -74,8 +96,8 @@ To run the converter script from the source code, ensure you have **Python 3.10+
 ---
 
 ## Supported Input Formats
+Formatix Image Converter reads and processes the following formats — all handled locally, with no upload required:
 
-Formatix can read and process the following image and vector formats:
 `JPEG (.jpg, .jpeg)` `PNG (.png)` `WEBP (.webp)` `AVIF (.avif)` `HEIC / HEIF (.heic, .heif)` `SVG (.svg)` `BMP (.bmp)` `TIFF (.tiff, .tif)` `GIF (.gif)` `ICO (.ico)`
 
 ---
