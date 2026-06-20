@@ -26,14 +26,11 @@ Formatix Image Converter is a powerful desktop application designed to batch con
 
 ## Why Formatix Image Converter?
 
-**✅ AVIF and HEIC output** — most desktop tools can only read these formats, not save to them  
 **✅ No plugins needed** — works out of the box, no extra downloads or setup  
 **✅ Free for everyone** — including commercial use, licensed under GPL-3.0  
 **✅ Open source** — auditable, no hidden telemetry, no ads, ever  
 **✅ 100% offline** — files never leave your computer  
 **✅ Modern UI** — dark and light theme, drag & drop, clean interface
-
-Your files **never leave your computer.** No uploads, no accounts, no ads — ever.
 
 ---
 
