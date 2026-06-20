@@ -36,19 +36,19 @@ Formatix Image Converter is a powerful desktop application designed to batch con
 
 ## Key Features
 
-* **Batch Processing** — convert, resize, and optimize hundreds of images in a single operation.
-* **8 Output Formats** — export to AVIF, WEBP, JPEG, HEIC/HEIF, PNG, BMP, TIFF, and ICO.
-* **Multi-threaded Conversion** — utilizes your CPU efficiently to convert multiple images simultaneously for lightning-fast batch operations.
-* **Advanced Image Resizer** — 5 resize modes including proportional scaling, smart crop, and custom dimension adjustments.
-* **Color Profile Management** — ICC-based color space conversion via Pillow ImageCms guarantees high color accuracy.
-* **Multi-size ICO Generation** — automatically creates Windows icon packs.
-* **Adjustable Quality Settings** — fine-tune compression levels for JPEG, WEBP, AVIF, and HEIC.
-* **Drag & Drop** — instantly add folders or individual files.
-* **Smart Conversion Cache** — automatically skips files already converted with identical settings to save time.
-* **Safe Processing** — features atomic file writes (prevents partially written output files) and overwrite protection.
-* **Built-in Image Comparison** — easily compare the source file with the processed result side-by-side.
+* **Batch Processing** — convert, resize, and optimize hundreds of images in a single operation
+* **8 Output Formats** — export to AVIF, WEBP, JPEG, HEIC/HEIF, PNG, BMP, TIFF, and ICO
+* **Multi-threaded Conversion** — utilizes your CPU efficiently to convert multiple images simultaneously for lightning-fast batch operations
+* **Advanced Image Resizer** — 5 resize modes including proportional scaling, smart crop, and custom dimension adjustments
+* **Color Profile Management** — ICC-based color space conversion via Pillow ImageCms guarantees high color accuracy
+* **Multi-size ICO Generation** — automatically creates Windows icon packs
+* **Adjustable Quality Settings** — fine-tune compression levels for JPEG, WEBP, AVIF, and HEIC
+* **Drag & Drop** — instantly add folders or individual files
+* **Smart Conversion Cache** — automatically skips files already converted with identical settings to save time
+* **Safe Processing** — features atomic file writes (prevents partially written output files) and overwrite protection
+* **Built-in Image Comparison** — easily compare the source file with the processed result side-by-side
 * **Multilingual UI** — 5 interface languages: English, Русский, Українська, Deutsch, 中文
-* **Light & Dark Mode** — switch between themes in Settings.
+* **Light & Dark Mode** — switch between themes in Settings
 
 ---
 
