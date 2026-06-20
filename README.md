@@ -1,98 +1,108 @@
 <h1 align="center">
 <sub>
-<img src="icon.ico" height="38" width="38" alt="Formatix Image Converter">
+<img src="icon.ico" height="38" width="38" alt="Formatix Offline Image Converter for Windows">
 </sub>
 Formatix Image Converter
 </h1>
 
-Formatix Image Converter is a fast, lightweight batch image converter for Windows. Convert, resize and optimize AVIF, WEBP, JPEG, PNG, BMP, TIFF, ICO and HEIF/HEIC images in just a few clicks. It also supports SVG vector files as input, allowing them to be converted into raster formats such as PNG, JPEG, WEBP and more.
+<p align="center">
+  <strong>A fast, lightweight, and 100% offline batch image converter and resizer for Windows.</strong>
+</p>
 
-No file limits, no internet connection. 100% offline processing means your images are never uploaded, shared, or sent anywhere — everything stays on your computer. Enjoy complete confidentiality and a strictly ad-free experience.
+Formatix Image Converter is a powerful desktop application designed to batch convert, resize, and optimize images in just a few clicks. Whether you need to convert Apple's HEIC formats to JPG, turn SVG vector graphics into PNG, or compress heavy images into next-generation AVIF and WEBP formats, Formatix handles it all instantly.
 
-<img width="2286" height="797" alt="formatix_themes_showcase" src="https://github.com/user-attachments/assets/bb39361f-f6fe-47a8-8f32-92bde7073219" />
+**No file limits, no internet connection required.** 100% offline processing means your images are never uploaded, shared, or sent to third-party servers. Everything stays securely on your computer. Enjoy complete privacy and a strictly ad-free experience.
+
+<img width="2286" height="797" alt="Formatix Image Converter - Dark and Light Themes Showcase - Batch Processing UI" src="https://github.com/user-attachments/assets/bb39361f-f6fe-47a8-8f32-92bde7073219" />
 
 ---
 
-## Features
+## Popular Conversions Supported
+Formatix Image Converter is built to handle the most common formatting headaches automatically:
+* **HEIC to JPG:** Easily view and share Apple iPhone photos (HEIF) on Windows as standard JPEGs.
+* **SVG to PNG:** Rasterize scalable vector graphics with perfect transparency, or convert them to WEBP.
+* **WEBP to JPG:** Convert heavy next-gen web formats (including AVIF) back to standard desktop formats.
+* **PNG to ICO:** Automatically generate multi-size Windows icon packs (up to 256×256 px) from your images.
 
-- **Batch conversion** — convert hundreds of images in a single operation
-- **8 output formats** — AVIF, WEBP, JPEG, HEIC/HEIF, PNG, BMP, TIFF, ICO
-- **Multi-threaded processing** — converts multiple images simultaneously for faster batch operations
-- **5 resize modes** — proportional scaling, smart crop and custom dimensions
-- **Color profile processing** — ICC-based color space conversion via Pillow ImageCms for high color accuracy
-- **Multi-size ICO generation** — automatically creates icon packs up to 256×256 px
-- **Adjustable quality settings** — JPEG, WEBP, AVIF and HEIC
-- **Drag & Drop support**
-- **Conversion cache** — instantly skips files already converted with identical settings
-- **Atomic file writes** — prevents partially written output files
-- **Overwrite protection**
-- **File size statistics**
-- **5 interface languages** — English, Русский, Українська, Deutsch, 中文
-- **Automatic language detection**
-- **Remember settings between sessions**
-- **Light/Dark theme supports** — switch between dark and light in Settings
-- **Image comparison tool** - allowing to easily compare the source file with the processed result
+---
+
+## Key Features
+
+* **Batch Processing** — convert, resize, and optimize hundreds of images in a single operation.
+* **8 Output Formats** — export to AVIF, WEBP, JPEG, HEIC/HEIF, PNG, BMP, TIFF, and ICO.
+* **Multi-threaded Conversion** — utilizes your CPU efficiently to convert multiple images simultaneously for lightning-fast batch operations.
+* **Advanced Image Resizer** — 5 resize modes including proportional scaling, smart crop, and custom dimension adjustments.
+* **Color Profile Management** — ICC-based color space conversion via Pillow ImageCms guarantees high color accuracy.
+* **Multi-size ICO Generation** — automatically creates Windows icon packs.
+* **Adjustable Quality Settings** — fine-tune compression levels for JPEG, WEBP, AVIF, and HEIC.
+* **Smart Drag & Drop** — instantly add folders or individual files.
+* **Smart Conversion Cache** — automatically skips files already converted with identical settings to save time.
+* **Safe Processing** — features atomic file writes (prevents partially written output files) and overwrite protection.
+* **Built-in Image Comparison** — easily compare the source file with the processed result side-by-side.
+* **Multilingual UI** — 5 interface languages (English, Русский, Українська, Deutsch, 中文) with automatic detection.
+* **Light & Dark Mode** — switch between themes in Settings.
 
 ---
 
 ## Requirements
 
-* **OS:** Windows (if you are using the pre-compiled `.exe` file)
+* **OS:** Windows (if using the pre-compiled `.exe` standalone app)
 * **Python:** 3.10+ *(only required if running from source)*
 * **Dependencies:** `Pillow`, `pillow-heif`, `tkinterdnd2`, `resvg-py` *(only required if running from source)*
 
-## Running
+---
 
-### Option 1 — Executable (Windows)
-Download the latest `.exe` from [Releases](https://github.com/cyber-anderson/Formatix/releases) and run it directly. No Python required. No installation, no setup — just run.
+## Installation & Running
 
-### Option 2 — From source
-To run the script from the source code, you need **Python 3.10+** and the necessary libraries.
+### Option 1 — Standalone Executable (Windows)
+Download the latest portable `.exe` from [Releases](https://github.com/cyber-anderson/Formatix/releases) and run it directly. No Python required, no installation, and no complex setup — just click and convert.
 
-1. Install the required dependencies:
-```bash
-pip install Pillow pillow-heif tkinterdnd2 resvg-py
-```
-2. Run the application:
-```bash
-python formatix.py
-```
+### Option 2 — Run from Source
+To run the converter script from the source code, ensure you have **Python 3.10+** installed along with the required libraries.
+
+1. Install the required Python dependencies:
+
+    pip install Pillow pillow-heif tkinterdnd2 resvg-py
+
+2. Launch the application:
+
+    python formatix.py
 
 ---
 
 ## Supported Input Formats
 
-`.jpg` `.jpeg` `.png` `.webp` `.bmp` `.tiff` `.tif` `.gif` `.ico` `.heic` `.heif` `.svg` `.avif`
+Formatix can read and process the following image and vector formats:
+`JPEG (.jpg, .jpeg)` `PNG (.png)` `WEBP (.webp)` `AVIF (.avif)` `HEIC / HEIF (.heic, .heif)` `SVG (.svg)` `BMP (.bmp)` `TIFF (.tiff, .tif)` `GIF (.gif)` `ICO (.ico)`
 
 ---
 
-## Output Formats
+## Output Formats & Specifications
 
-| Format | Type & Quality | Notes |
+| Format | Compression Type | Notes for Users |
 | :--- | :--- | :--- |
-| **AVIF** | Lossy (Adjustable) | Next-generation format; offers superior compression with high quality |
-| **WEBP** | Lossy (Adjustable) | Best size-to-quality ratio for web use |
-| **JPEG** | Lossy (Adjustable) | Standard format; RGBA transparency auto-converted to RGB |
-| **HEIC** | Lossy (Adjustable) | High Efficiency Image Format (HEIF/HEIC), commonly used by Apple devices |
-| **PNG** | Lossless (Fixed) | Ideal for graphics requiring perfect clarity and alpha channel |
-| **BMP** | Uncompressed (Fixed) | Raw bitmap files with no compression |
-| **TIFF** | Lossless (Fixed) | High-fidelity format used for archival and printing |
-| **ICO** | Lossless (Fixed) | Windows icon container (automatically generates sizes up to 256×256) |
-
-
----
-
-## Settings
-
-Settings are stored in `~/.formatix_image_converter_settings.json`.
-
-You can enable or disable settings persistence in the Settings window — when disabled, the app always starts with default values (the language preference is always remembered regardless).
+| **AVIF** | Lossy (Adjustable) | Next-generation format; offers superior compression with high visual quality. |
+| **WEBP** | Lossy (Adjustable) | Best size-to-quality ratio for modern web development. |
+| **JPEG** | Lossy (Adjustable) | Standard universal format; RGBA transparency is auto-converted to RGB. |
+| **HEIC** | Lossy (Adjustable) | High Efficiency Image Format, commonly used by Apple iOS devices. |
+| **PNG** | Lossless (Fixed) | Ideal for graphics requiring perfect clarity and an alpha channel (transparency). |
+| **BMP** | Uncompressed (Fixed)| Raw bitmap files with absolutely no compression. |
+| **TIFF** | Lossless (Fixed) | High-fidelity format used for professional printing and archival storage. |
+| **ICO** | Lossless (Fixed) | Windows icon container (automatically generates sizes up to 256×256 px). |
 
 ---
 
-## ☕ Support the Author
+## Settings & Configuration
 
-If Formatix saved you time or effort, a small donation is always appreciated.
+Settings are stored locally in `~/.formatix_image_converter_settings.json`.
+
+You can enable or disable settings persistence in the Settings window. When disabled, the application always starts with default values (note: the language preference is always remembered regardless of this setting).
+
+---
+
+## ❤️ Support the Project
+
+If this offline batch image converter saved you time or effort, a small donation to support further development is always appreciated!
 
 | Currency | Network | Address |
 |----------|---------|---------|
@@ -106,4 +116,4 @@ If Formatix saved you time or effort, a small donation is always appreciated.
 
 ## License
 
-[GPL-3.0](https://github.com/cyber-anderson/Formatix?tab=GPL-3.0-1-ov-file#)
+This project is licensed under the [GPL-3.0 License](https://github.com/cyber-anderson/Formatix?tab=GPL-3.0-1-ov-file#).
