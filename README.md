@@ -62,7 +62,7 @@ Formatix Image Converter is built to handle the most common formatting headaches
 * **Smart Conversion Cache** — automatically skips files already converted with identical settings to save time.
 * **Safe Processing** — features atomic file writes (prevents partially written output files) and overwrite protection.
 * **Built-in Image Comparison** — easily compare the source file with the processed result side-by-side.
-* **Multilingual UI** — 5 interface languages (English, Русский, Українська, Deutsch, 中文) with automatic detection.
+* **Multilingual UI** — 5 interface languages: English, Русский, Українська, Deutsch, 中文
 * **Light & Dark Mode** — switch between themes in Settings.
 
 ---
