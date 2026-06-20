@@ -26,20 +26,19 @@ Formatix Image Converter is a powerful desktop application designed to batch con
 
 ## Why Formatix Image Converter?
 
-| | Formatix Image Converter | Online converters | IrfanView | XnConvert |
-|---|---|---|---|---|
-| Works offline | ✅ | ❌ | ✅ | ✅ |
-| No file size limit | ✅ | ❌ | ✅ | ✅ |
-| AVIF output support | ✅ | Partial | ❌ read-only via plugin | ❌ |
-| HEIC output support | ✅ | Partial | ❌ read-only via plugin | ❌ |
-| No plugins needed | ✅ | — | ❌ requires plugin pack | ✅ |
-| Free for commercial use | ✅ GPL-3.0 | Partial | ❌ paid license required | ⚠️ non-commercial only |
-| Modern UI | ✅ | ✅ | ❌ UI from the 90s | ✅ |
-| Open source | ✅ | ❌ | ❌ closed source | ❌ closed source |
-| No watermarks | ✅ | ❌ | ✅ | ✅ |
-| Smart crop & resize | ✅ | ❌ | ❌ | ✅ |
-| Dark / Light theme | ✅ | — | ❌ | ❌ |
-| No registration | ✅ | Partial | ✅ | ✅ |
+| Feature | Formatix Image Converter | Online converters | IrfanView | XnConvert |
+| :--- | :---: | :---: | :---: | :---: |
+| **100% Offline / Private** | ✅ | ❌ | ✅ | ✅ |
+| **No file size limits** | ✅ | ❌ | ✅ | ✅ |
+| **Free for commercial use** | ✅ GPL-3.0 | ⚠️ Partial | ❌ Paid license req. | ❌ Non-commercial only |
+| **Open Source** | ✅ | ❌ | ❌ | ❌ |
+| **HEIC output (Save as HEIC)** | ✅ | ⚠️ Partial | ❌ | ❌ |
+| **AVIF output (Save as AVIF)** | ✅ | ⚠️ Partial | ⚠️ Requires plugin | ✅ |
+| **No plugins needed** | ✅ | — | ❌ Requires plugin pack| ✅ |
+| **Smart crop & custom resize** | ✅ | ❌ | ⚠️ Manual batch setup | ✅ |
+| **Modern user interface** | ✅ | ✅ | ⚠️ Legacy interface | ✅ |
+| **Dark / Light theme** | ✅ | ⚠️ Partial | ✅ | ✅ |
+| **No registration needed** | ✅ | ⚠️ Partial | ✅ | ✅ |
 
 Your files **never leave your computer.** No uploads, no accounts, no ads — ever.
 
