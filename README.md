@@ -2,7 +2,7 @@
 
 <h1 align="center">
 <sub>
-<img src="icon.ico" height="38" width="38" alt="Formatix Offline Image Converter for Windows">
+<img src="icon.ico" height="38" width="38" alt="Formatix Image Converter logo">
 </sub>
 Formatix Image Converter
 
