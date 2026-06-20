@@ -6,7 +6,6 @@
 </sub>
 Formatix Image Converter
 
-
 ![Version](https://img.shields.io/github/v/release/cyber-anderson/Formatix)
 ![License](https://img.shields.io/github/license/cyber-anderson/Formatix)
 ![Platform](https://img.shields.io/badge/platform-Windows-blue)
