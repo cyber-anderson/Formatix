@@ -43,8 +43,6 @@ Formatix Image Converter is a powerful desktop application designed to batch con
 
 Your files **never leave your computer.** No uploads, no accounts, no ads — ever.
 
-Your files **never leave your computer.** No uploads, no accounts, no ads — ever.
-
 ---
 
 ## Popular Conversions Supported
