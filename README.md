@@ -89,15 +89,16 @@ Formatix Image Converter is built to handle the most common formatting headaches
 Download the latest portable `.exe` from [Releases](https://github.com/cyber-anderson/Formatix/releases) and run it directly. No Python required, no installation, and no complex setup — just click and convert.
 
 ### Option 2 — Run from Source
-To run the converter script from the source code, ensure you have **Python 3.10+** installed along with the required libraries.
+To run the script from the source code, you need **Python 3.10+** and the necessary libraries.
 
-1. Install the required Python dependencies:
-
-    pip install Pillow pillow-heif tkinterdnd2 resvg-py
-
-2. Launch the application:
-
-    python formatix.py
+1. Install the required dependencies:
+```bash
+pip install Pillow pillow-heif tkinterdnd2 resvg-py
+```
+2. Run the application:
+```bash
+python formatix.py
+```
 
 ---
 
