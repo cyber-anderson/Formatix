@@ -101,8 +101,8 @@ python formatix.py
 ## Supported Input Formats
 
 | JPEG | PNG | WebP | AVIF | HEIC / HEIF | SVG | BMP | TIFF | GIF | ICO |
-|------|-----|------|------|-------------|-----|-----|------|-----|-----|
-| `.jpg` `.jpeg` | `.png` | `.webp` | `.avif` | `.heic` `.heif` | `.svg` | `.bmp` | `.tiff` `.tif` | `.gif` | `.ico` |
+|:----:|:---:|:----:|:----:|:-----------:|:---:|:---:|:----:|:---:|:---:|
+| `.jpg`<br>`.jpeg` | `.png` | `.webp` | `.avif` | `.heic`<br>`.heif` | `.svg` | `.bmp` | `.tiff`<br>`.tif` | `.gif` | `.ico` |
 
 ---
 
