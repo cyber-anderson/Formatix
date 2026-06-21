@@ -12,7 +12,6 @@ Formatix Image Converter
 ![Python](https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white)
 ![Downloads](https://img.shields.io/github/downloads/cyber-anderson/Formatix/total)
 ![Stars](https://img.shields.io/github/stars/cyber-anderson/Formatix?style=social)
-![Repo size](https://img.shields.io/github/repo-size/cyber-anderson/Formatix)
 
 </h1>
 <p align="center">
