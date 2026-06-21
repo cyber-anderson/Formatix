@@ -148,7 +148,7 @@ You can enable or disable settings persistence in the Settings window. When disa
 > The quality setting applies to lossy formats: **JPEG**, **WEBP**, **AVIF**, and **HEIC**. Lossless formats (PNG, TIFF, BMP, ICO) ignore this setting and always output at full quality.
 
 **Q: How do I compare the original and converted image?**
-> After conversion, click the **Compare** button — it opens a side-by-side view so you can evaluate quality and file size differences before deciding on your settings.
+> After conversion, click the **Compare** button — it opens a side-by-side view so you can evaluate quality and file size.
 
 ---
 
