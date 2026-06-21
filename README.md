@@ -57,9 +57,9 @@ Formatix Image Converter is a powerful desktop application designed to batch con
 
 * **Batch Processing** — convert, resize, and optimize hundreds of images in a single operation
 * **8 Output Formats** — export to AVIF, WEBP, JPEG, HEIC/HEIF, PNG, BMP, TIFF, and ICO
-* **Multi-threaded Conversion** — utilizes your CPU efficiently to convert multiple images simultaneously for lightning-fast batch operations
-* **Advanced Image Resizer** — 5 resize modes including proportional scaling, smart crop, and custom dimension adjustments
-* **Color Profile Management** — ICC-based color space conversion via Pillow ImageCms guarantees high color accuracy
+* **Multi-threaded Conversion** — converts multiple images simultaneously for fast batch operations
+* **Advanced Image Resizer** — 5 resize modes: proportional scaling, smart crop, and custom dimensions
+* **Color Profile Management** — ICC-based color space conversion via Pillow ImageCms for high color accuracy
 * **Multi-size ICO Generation** — automatically creates Windows icon packs
 * **Adjustable Quality Settings** — fine-tune compression levels for JPEG, WEBP, AVIF, and HEIC
 * **Drag & Drop** — instantly add folders or individual files
