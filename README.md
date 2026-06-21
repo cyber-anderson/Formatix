@@ -111,6 +111,31 @@ You can enable or disable settings persistence in the Settings window. When disa
 
 ---
 
+## FAQ
+
+**Q: Which format should I choose for maximum compression?**
+> Use **AVIF** — it's the most modern format available. It delivers the smallest file sizes while maintaining excellent visual quality. Ideal for web, storage optimization, or sharing. At a quality setting of 85%, the file size is often 4× smaller than the original with no visible difference to the eye.
+
+**Q: Which format is best for web images?**
+> **WEBP** is the go-to for general web use — it offers a great balance between file size and quality, and is widely supported by all modern browsers. If your target audience uses up-to-date browsers, **AVIF** is even better.
+
+**Q: Which format should I use if I need transparency (alpha channel)?**
+> Use **PNG** (lossless, supports full alpha) or **WEBP** (lossy with alpha support). Avoid **JPEG** and **BMP** — they don't support transparency. JPEG will auto-convert RGBA to RGB.
+
+**Q: Can I convert SVG files?**
+> Yes. SVG files are accepted as input and can be converted into raster formats such as PNG, JPEG, WEBP, AVIF, and others.
+
+**Q: Does it upload my images anywhere?**
+> No. Everything is processed **fully offline** on your local machine. Your files are never uploaded, shared, or sent anywhere.
+
+**Q: What does the quality slider affect?**
+> The quality setting applies to lossy formats: **JPEG**, **WEBP**, **AVIF**, and **HEIC**. Lossless formats (PNG, TIFF, BMP, ICO) ignore this setting and always output at full quality.
+
+**Q: How do I compare the original and converted image?**
+> After conversion, click the **Compare** button — it opens a side-by-side view so you can evaluate quality and file size differences before deciding on your settings.
+
+---
+
 ## ❤️ Support the Project
 
 If Formatix Image Converter saved you time or effort, a small donation to support further development is always appreciated!
