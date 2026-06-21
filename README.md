@@ -28,7 +28,7 @@ Formatix Image Converter is a powerful desktop application designed to batch con
 
 ## Table of Contents
 
-- [Why?](#why-formatix-image-converter)
+- [Why Formatix Image Converter?](#why-formatix-image-converter)
 - [Key Features](#key-features)
 - [Requirements](#requirements)
 - [Installation & Running](#installation--running)
