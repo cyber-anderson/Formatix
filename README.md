@@ -125,7 +125,7 @@ python formatix.py
 
 Settings are stored locally in `~/.formatix_image_converter_settings.json`.
 
-You can enable or disable settings persistence in the Settings window. When disabled, the application always starts with default values (note: the language preference is always remembered regardless of this setting).
+You can enable or disable settings persistence in the Settings window. When disabled, the application always starts with default values (note: the language preference is determined by the system language).
 
 ---
 
