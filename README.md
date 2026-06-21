@@ -44,7 +44,7 @@ Formatix Image Converter is a powerful desktop application designed to batch con
 ## Why Formatix Image Converter?
 
 **✅ 100% offline** — images never leave your computer  
-**✅ Portable & self-containedd** — no installation, no registry entries, just a single .exe you can run from anywhere 
+**✅ Portable & self-containedd** — no installation, no registry entries, just a single .exe you can run from anywhere  
 **✅ No plugins needed** — works out of the box, no extra downloads or setup  
 **✅ Free for everyone** — including commercial use, licensed under GPL-3.0  
 **✅ Open source** — auditable, no hidden telemetry, no ads, ever  
