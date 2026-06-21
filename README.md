@@ -5,11 +5,15 @@
 <img src="icon.ico" height="38" width="38" alt="Logo">
 </sub>
 Formatix Image Converter
-
+  
 ![Version](https://img.shields.io/github/v/release/cyber-anderson/Formatix)
 ![License](https://img.shields.io/github/license/cyber-anderson/Formatix)
 ![Platform](https://img.shields.io/badge/platform-Windows-blue)
-![Python](https://img.shields.io/badge/python-3.10%2B-blue)
+![Python](https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white)
+![Downloads](https://img.shields.io/github/downloads/cyber-anderson/Formatix/total)
+![Stars](https://img.shields.io/github/stars/cyber-anderson/Formatix?style=social)
+![Repo size](https://img.shields.io/github/repo-size/cyber-anderson/Formatix)
+
 </h1>
 <p align="center">
   <strong>A fast, lightweight, and 100% offline batch image converter and resizer for Windows.</strong>
