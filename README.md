@@ -1,5 +1,3 @@
-
-
 <h1 align="center">
 <sub>
 <img src="icon.ico" height="38" width="38" alt="Logo">
