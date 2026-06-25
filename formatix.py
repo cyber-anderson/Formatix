@@ -3508,7 +3508,7 @@ class App(BaseClass):
                  bg=BG, fg=FG, justify="center").pack(pady=15)
 
         def _open_wallets():
-            webbrowser.open("https://github.com/cyber-anderson/Formatix#-support-the-author")
+            webbrowser.open("https://github.com/cyber-anderson/Formatix#%EF%B8%8F-support-the-project")
             win.destroy()  # Окно закроется после открытия браузера (можно убрать, если не нужно)
 
         # Новая кнопка в стиле кнопки "Конвертировать" (как в _btn)
