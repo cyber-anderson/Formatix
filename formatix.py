@@ -3502,7 +3502,7 @@ class App(BaseClass):
         tk.Label(win, text="♥", font=("Segoe UI", 28), bg=BG, fg=HEART_RED).pack(pady=(16, 2))
         tk.Label(win, text=self.t("donate_sub"),
                  font=("Segoe UI", 12, "bold"), bg=BG, fg=FG).pack()
- 
+
         tk.Label(win, text=self.t("donate_desc"), font=("Segoe UI", 10),
                  bg=BG, fg=FG, justify="center").pack(pady=15)
 
