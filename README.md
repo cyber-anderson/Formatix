@@ -152,7 +152,7 @@ You can enable or disable settings persistence in the Settings window. When disa
 
 ---
 
-## ❤️Support the Project
+## ❤️ Support the Project
 
 If Formatix Image Converter saved you time or effort, a small donation to support further development is always appreciated!
 
