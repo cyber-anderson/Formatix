@@ -1483,7 +1483,6 @@ class App(BaseClass):
 
         try:
             ico_path = resource_path("icon.ico")
-            from PIL import ImageTk
             with Image.open(ico_path) as ico:
                 icons = []
                 for size in (16, 24, 32, 48, 64, 128, 256):
