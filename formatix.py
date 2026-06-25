@@ -184,7 +184,7 @@ FG3     = _palette["FG3"]
 BORDER  = _palette["BORDER"]
 
 APP_NAME = "Formatix Image Converter"
-VERSION  = "1.14.2"
+VERSION  = "1.14.3"
 
 # Константы анимации сердечка
 _HEART_BEAT1_MS   = 120
