@@ -4,7 +4,7 @@
 </sub>
 Formatix Image Converter
   
-[![Version](https://img.shields.io/github/v/release/cyber-anderson/Formatix)](https://github.com/cyber-anderson/Formatix/releases/latest)
+[![Download](https://img.shields.io/github/v/release/cyber-anderson/Formatix?label=Download&style=flat&color=green&logo=download)](https://github.com/cyber-anderson/Formatix/releases/latest)
 [![License](https://img.shields.io/github/license/cyber-anderson/Formatix)](https://github.com/cyber-anderson/Formatix/blob/main/LICENSE)
 [![Platform](https://img.shields.io/badge/platform-Windows-blue)](https://github.com/cyber-anderson/Formatix#requirements)
 [![Python](https://img.shields.io/badge/python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/downloads/)
