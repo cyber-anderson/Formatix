@@ -184,7 +184,7 @@ FG3     = _palette["FG3"]
 BORDER  = _palette["BORDER"]
 
 APP_NAME = "Formatix Image Converter"
-VERSION  = "1.14.3"
+VERSION  = "1.15.0"
 
 # Константы анимации сердечка
 _HEART_BEAT1_MS   = 120
@@ -244,6 +244,8 @@ STRINGS = {
         "svg_no_size_msg": "SVG files have no fixed resolution.\nPlease set width and height in “Custom” mode before converting.",
         "compare_btn": "🆚 Compare", "compare_title": "Comparison",
         "compare_no_files": "No files to compare",
+        "qmode_percent": "%", "qmode_size": "Size",
+        "warn_bad_target_size": "Please enter a valid target file size (greater than 0).",
     },
     "ru": {
         "add": "+ Добавить", "clear": "✕ Очистить",
@@ -289,6 +291,8 @@ STRINGS = {
         "svg_no_size_msg": "SVG-файлы не имеют фиксированного разрешения.\nПожалуйста, задайте ширину и высоту в режиме «Пользовательский» перед конвертацией.",
         "compare_btn": "🆚 Сравнить", "compare_title": "Сравнение",
         "compare_no_files": "Файлы для сравнения отсутствуют",
+        "qmode_percent": "%", "qmode_size": "Размер",
+        "warn_bad_target_size": "Введите корректный целевой размер файла (больше 0).",
     },
     "uk": {
         "add": "+ Додати", "clear": "✕ Очистити",
@@ -335,6 +339,8 @@ STRINGS = {
         "svg_no_size_msg": "SVG-файли не мають фіксованої роздільності.\nБудь ласка, задайте ширину і висоту в режимі «Користувацький» перед конвертацією.",
         "compare_btn": "🆚 Порівняти", "compare_title": "Порівняння",
         "compare_no_files": "Файли для порівняння відсутні",
+        "qmode_percent": "%", "qmode_size": "Розмір",
+        "warn_bad_target_size": "Введіть коректний цільовий розмір файлу (більше 0).",
     },
     "de": {
         "add": "+ Hinzufügen", "clear": "✕ Leeren",
@@ -380,6 +386,8 @@ STRINGS = {
         "svg_no_size_msg": "SVG-Dateien haben keine feste Auflösung.\nBitte geben Sie Breite und Höhe im Modus „Benutzerdefiniert“ vor der Konvertierung ein.",
         "compare_btn": "🆚 Vergleichen", "compare_title": "Vergleich",
         "compare_no_files": "Keine Dateien zum Vergleich vorhanden",
+        "qmode_percent": "%", "qmode_size": "Größe",
+        "warn_bad_target_size": "Bitte eine gültige Zielgröße eingeben (größer als 0).",
     },
     "zh": {
         "add": "+ 添加", "clear": "✕ 清空",
@@ -425,6 +433,8 @@ STRINGS = {
         "svg_no_size_msg": "SVG 文件没有固定分辨率。\n请在「自定义」模式下设置宽度和高度后再进行转换。",
         "compare_btn": "🆚 对比", "compare_title": "对比",
         "compare_no_files": "没有可对比的文件",
+        "qmode_percent": "%", "qmode_size": "大小",
+        "warn_bad_target_size": "请输入有效的目标文件大小（大于 0）。",
     },
 }
 
@@ -793,6 +803,112 @@ class FancySlider(tk.Frame):
             self.entry.config(state="disabled", bg=BG3, fg=FG3,
                               font=("Consolas", 10, "bold"))
             self.entry_var.set("—")
+
+
+class SegmentedToggle(tk.Frame):
+    """Компактный переключатель на 2 позиции — рисуется на Canvas.
+    По умолчанию прямоугольный (radius=0); при radius>0 углы скругляются
+    через сглаженный полигон (в tkinter нет нативной поддержки round-corner).
+    Используется для переключения режима качества между "% качества" и
+    "целевой размер файла".
+
+    Не хранит состояние сам — целиком управляется извне через переданную
+    tk.StringVar (variable): подписывается на её изменения через trace и
+    перерисовывается, а по клику вызывает command(new_value), не трогая
+    variable напрямую — актуальное значение всегда выставляет вызывающий код.
+    Это исключает рассинхронизацию между «что нарисовано» и «что сохранено»,
+    даже если variable меняется откуда-то ещё, а не только кликом.
+    """
+
+    def __init__(self, parent, options, variable, command=None,
+                 width=76, height=20, font=("Segoe UI", 8, "bold"), radius=0):
+        super().__init__(parent, bg=BG2)
+        self._segments = list(options)   # [(value, label), (value, label)]
+        self._variable = variable
+        self._command  = command
+        self._width    = width
+        self._height   = height
+        self._radius   = radius
+        self._font     = font
+        self._enabled  = True
+
+        self.canvas = tk.Canvas(self, width=width, height=height,
+                                bg=BG2, highlightthickness=0, cursor="hand2")
+        self.canvas.pack()
+        self.canvas.bind("<Button-1>", self._on_click)
+        self._variable.trace_add("write", lambda *a: self._redraw())
+        self._redraw()
+
+    def _round_rect(self, x1, y1, x2, y2, r, **kw):
+        """Скруглённый прямоугольник через сглаженный полигон (smooth=True)."""
+        r = max(0, r)
+        pts = [x1 + r, y1, x2 - r, y1, x2, y1, x2, y1 + r, x2, y2 - r, x2, y2,
+               x2 - r, y2, x1 + r, y2, x1, y2, x1, y2 - r, x1, y1 + r, x1, y1]
+        return self.canvas.create_polygon(pts, smooth=True, **kw)
+
+    def _draw_shape(self, x1, y1, x2, y2, **kw):
+        """Прямоугольник (radius=0) или скруглённый прямоугольник (radius>0)."""
+        if self._radius > 0:
+            return self._round_rect(x1, y1, x2, y2, self._radius, **kw)
+        return self.canvas.create_rectangle(x1, y1, x2, y2, **kw)
+
+    def set_labels(self, options):
+        """Обновляет подписи сегментов (для смены языка интерфейса),
+        сохраняя привязанные к ним значения."""
+        self._segments = list(options)
+        self._redraw()
+
+    def _active_index(self):
+        cur = self._variable.get()
+        for i, (val, _label) in enumerate(self._segments):
+            if val == cur:
+                return i
+        return 0
+
+    def _redraw(self):
+        c = self.canvas
+        c.delete("all")
+        w, h = self._width, self._height
+
+        # Рамка-«трек» на всю ширину
+        self._draw_shape(1, 1, w - 1, h - 1, fill=BG3, outline=BORDER, width=1)
+
+        n     = len(self._segments)
+        seg_w = w / n
+        idx   = self._active_index()
+
+        # Заливка активного сегмента
+        indicator_color = ACCENT if self._enabled else BG2
+        self._draw_shape(idx * seg_w + 1, 1, (idx + 1) * seg_w - 1, h - 1,
+                         fill=indicator_color, outline="")
+
+        # Разделитель между сегментами
+        for i in range(1, n):
+            x = i * seg_w
+            c.create_line(x, 1, x, h - 1, fill=BORDER)
+
+        active_fg   = "#ffffff" if self._enabled else FG3
+        inactive_fg = FG3
+        for i, (_val, label) in enumerate(self._segments):
+            cx = (i + 0.5) * seg_w
+            c.create_text(cx, h / 2, text=label,
+                          fill=(active_fg if i == idx else inactive_fg), font=self._font)
+
+    def _on_click(self, event):
+        if not self._enabled:
+            return
+        n     = len(self._segments)
+        seg_w = self._width / n
+        idx   = min(max(int(event.x // seg_w), 0), n - 1)
+        new_val = self._segments[idx][0]
+        if self._command:
+            self._command(new_val)
+
+    def set_enabled(self, enabled: bool):
+        """Включает/выключает интерактивность и визуально приглушает виджет."""
+        self._enabled = enabled
+        self.canvas.config(cursor="hand2" if enabled else "arrow")
+        self._redraw()
 
 
 # ── ОКНО СРАВНЕНИЯ ────────────────────────────────────────────────────────────
@@ -1533,6 +1649,17 @@ class App(BaseClass):
             if saved_fmt in FORMATS:
                 self._fmt.set(saved_fmt)
             self._qual.set(saved_qual)
+            # Восстанавливаем режим качества (% / целевой размер файла)
+            saved_qmode = self._settings.get("quality_mode", "percent")
+            if saved_qmode in ("percent", "size"):
+                self._quality_mode.set(saved_qmode)
+            saved_target_val = self._settings.get("target_size_val", 500)
+            if isinstance(saved_target_val, int) and saved_target_val > 0:
+                self._target_size_val.set(str(saved_target_val))
+            saved_target_unit = self._settings.get("target_size_unit", "KB")
+            if saved_target_unit in ("KB", "MB"):
+                self._target_size_unit.set(saved_target_unit)
+            self._refresh_quality_mode_ui()
             # Восстанавливаем режим изменения разрешения
             saved_resize_key = self._settings.get("resize_mode_key", "no_change")
             saved_resize_loc = self._key_to_localized_mode(saved_resize_key)
@@ -1622,6 +1749,20 @@ class App(BaseClass):
             pass
         try:
             self._settings["resize_mode_key"] = self._current_resize_mode_key()
+        except AttributeError:
+            pass
+        try:
+            self._settings["quality_mode"]    = self._quality_mode.get()
+        except AttributeError:
+            pass
+        try:
+            target_val = self._target_size_val.get()
+            if target_val.isdigit():
+                self._settings["target_size_val"] = int(target_val)
+        except AttributeError:
+            pass
+        try:
+            self._settings["target_size_unit"] = self._target_size_unit.get()
         except AttributeError:
             pass
         try:
@@ -1852,12 +1993,56 @@ class App(BaseClass):
         _fmt_cb.pack()
         _fmt_cb.bind("<<ComboboxSelected>>", self._on_format_changed)
 
-        # КАЧЕСТВО
-        _qual_blk, self._quality_lbl, _qual_wf = _ctrl_block(ctrl_row, self.t("quality_lbl"))
+        # КАЧЕСТВО (два режима: по проценту качества ИЛИ по целевому размеру файла)
+        _qual_blk = tk.Frame(ctrl_row, bg=BG2)
+        _qual_blk.pack(side="left", anchor="n", padx=(0, 16))
+
+        _qual_lbl_row = tk.Frame(_qual_blk, bg=BG2)
+        _qual_lbl_row.pack(anchor="w")
+        self._quality_lbl = tk.Label(_qual_lbl_row, text=self.t("quality_lbl"),
+                                     font=("Segoe UI", 10, "bold"), bg=BG2, fg=FG2)
+        self._quality_lbl.pack(side="left")
+
+        # Переключатель режима — прямоугольная кнопка-тумблер (SegmentedToggle)
+        # сразу справа от заголовка блока: «КАЧЕСТВО [% | Размер]».
+        self._quality_mode = tk.StringVar(value="percent")
+        self._qmode_toggle = SegmentedToggle(
+            _qual_lbl_row,
+            options=[("percent", self.t("qmode_percent")), ("size", self.t("qmode_size"))],
+            variable=self._quality_mode,
+            command=self._set_quality_mode,
+            width=94)   # было 76 (по умолчанию) — не хватало места под "Размер"
+        self._qmode_toggle.pack(side="left", padx=(8, 0))
+
+        _qual_wf = tk.Frame(_qual_blk, bg=BG2)
+        _qual_wf.pack(anchor="w", pady=(4, 0))
+
         self._qual = tk.IntVar(value=85)
         self._qual.trace_add("write", lambda *a: self._save_settings())
-        self._qual_slider = FancySlider(_qual_wf, from_=10, to=100, variable=self._qual, width=155)
+        self._qual_slider = FancySlider(_qual_wf, from_=10, to=100, variable=self._qual, width=190)
         self._qual_slider.pack()
+
+        # Целевой размер: поле ввода числа + единицы (KB/MB). Скрыто, пока
+        # активен режим "по проценту" — показывается через _refresh_quality_mode_ui.
+        self._target_size_frame = tk.Frame(_qual_wf, bg=BG2)
+        self._target_size_val = tk.StringVar(value="500")
+        self._target_size_val.trace_add("write", self._on_target_size_write)
+        self._e_target_size = tk.Entry(
+            self._target_size_frame, textvariable=self._target_size_val,
+            font=("Segoe UI", 10, "bold"), bg=ACCENT, fg="#fff", width=5,
+            bd=0, justify="center", insertbackground="#fff")
+        self._e_target_size.pack(side="left", ipady=1)
+        self._e_target_size.bind("<Double-Button-1>", self._select_all_entry)
+        self._e_target_size.bind("<Control-a>",       self._ctrl_a_entry)
+        self._e_target_size.bind("<Control-A>",       self._ctrl_a_entry)
+
+        self._target_size_unit = tk.StringVar(value="KB")
+        self._target_size_unit.trace_add("write", lambda *a: self._save_settings())
+        self._cb_target_unit = ttk.Combobox(
+            self._target_size_frame, textvariable=self._target_size_unit,
+            values=["KB", "MB"], width=4, state="readonly", font=("Segoe UI", 9))
+        self._cb_target_unit.pack(side="left", padx=(4, 0))
+
 
         # ИЗМЕНЕНИЕ РАЗРЕШЕНИЯ
         _res_blk, self._resize_lbl, _res_wf = _ctrl_block(ctrl_row, self.t("resize_lbl"))
@@ -1913,6 +2098,7 @@ class App(BaseClass):
         self._h_val.trace_add("write", self._limit_size_max)
 
         self._on_resize_mode_changed()
+        self._refresh_quality_mode_ui()
 
         # ПРОГРЕСС — блок растягивается, прогрессбар и виджет-фрейм тоже
         _pf_blk, self._progress_lbl, _pf_wf = _ctrl_block(ctrl_row, self.t("progress_lbl"))
@@ -2274,9 +2460,8 @@ class App(BaseClass):
         fmt     = self._fmt.get()
         prev    = getattr(self, "_prev_fmt", None)
 
-        quality_matters = fmt in ("JPEG", "WEBP", "HEIC", "AVIF")
         if hasattr(self, "_qual_slider"):
-            self._qual_slider.set_enabled(quality_matters)
+            self._refresh_quality_mode_ui()
 
         if fmt == "ICO":
             current_key = self._current_resize_mode_key()
@@ -2316,6 +2501,56 @@ class App(BaseClass):
                 n = min(int(value), 16000)
                 if str(n) != value:
                     var.set(str(n))
+
+    # ── режим качества: "% качества" ⇄ "целевой размер файла" ──────────────────
+
+    def _set_quality_mode(self, mode):
+        """Переключает режим блока КАЧЕСТВО между ползунком % и целевым размером."""
+        if self._quality_mode.get() == mode:
+            return
+        self._quality_mode.set(mode)
+        self._refresh_quality_mode_ui()
+        self._save_settings()
+
+    def _refresh_quality_mode_ui(self):
+        """Показывает нужный виджет (слайдер или поле размера) согласно
+        активному режиму. Также блокирует переключатель и оба виджета,
+        если для текущего формата параметр качества не применяется вовсе
+        (PNG/BMP/TIFF/ICO)."""
+        mode              = self._quality_mode.get()
+        quality_matters   = self._fmt.get() in ("JPEG", "WEBP", "HEIC", "AVIF")
+
+        if mode == "percent":
+            self._target_size_frame.pack_forget()
+            self._qual_slider.pack()
+        else:
+            self._qual_slider.pack_forget()
+            self._target_size_frame.pack()
+
+        self._qual_slider.set_enabled(quality_matters and mode == "percent")
+        self._qmode_toggle.set_enabled(quality_matters)
+
+        target_state = "normal" if quality_matters else "disabled"
+        self._e_target_size.config(
+            state=target_state,
+            bg=ACCENT if quality_matters else BG3,
+            fg="#fff" if quality_matters else FG3)
+        self._cb_target_unit.config(state=("readonly" if quality_matters else "disabled"))
+
+    def _on_target_size_write(self, *args):
+        """Разрешает вводить только цифры и ограничивает разумным максимумом."""
+        val = self._target_size_val.get()
+        if val == "":
+            return
+        if not val.isdigit():
+            cleaned = "".join(c for c in val if c.isdigit())
+            self._target_size_val.set(cleaned)
+            return
+        n = int(val)
+        if n > 999999:
+            self._target_size_val.set("999999")
+            return
+        self._save_settings()
 
     def _on_size_focus_in(self, event):
         event.widget.config(highlightbackground=ACCENT, highlightcolor=ACCENT)
@@ -2644,6 +2879,8 @@ class App(BaseClass):
 
         self._format_lbl.config(text=self.t("format_lbl"))
         self._quality_lbl.config(text=self.t("quality_lbl"))
+        self._qmode_toggle.set_labels([
+            ("percent", self.t("qmode_percent")), ("size", self.t("qmode_size"))])
         self._resize_lbl.config(text=self.t("resize_lbl"))
         self._progress_lbl.config(text=self.t("progress_lbl"))
         self._filesize_lbl.config(text=self.t("filesize_lbl"))
@@ -2867,6 +3104,20 @@ class App(BaseClass):
                     if not answer:
                         return
 
+        # Если активен режим "целевой размер файла" — валидируем и переводим в байты
+        quality_mode = self._quality_mode.get()
+        target_bytes = None
+        if quality_mode == "size" and self._fmt.get() in ("JPEG", "WEBP", "HEIC", "AVIF"):
+            try:
+                target_size_num = int(self._target_size_val.get())
+                if target_size_num <= 0:
+                    raise ValueError
+            except ValueError:
+                messagebox.showerror(APP_NAME, self.t("warn_bad_target_size"))
+                return
+            unit = self._target_size_unit.get()
+            target_bytes = target_size_num * (1024 * 1024 if unit == "MB" else 1024)
+
         out_dir = self._out_dir.get()
         if not out_dir or not os.path.isdir(out_dir):
             out_dir = filedialog.askdirectory(title=self.t("save_folder"))
@@ -2878,7 +3129,11 @@ class App(BaseClass):
 
         fmt_now            = self._fmt.get()
         ext_now            = ".jpg" if fmt_now == "JPEG" else f".{fmt_now.lower()}"
-        current_config_str = (f"fmt:{fmt_now}|q:{self._qual.get()}|dir:{out_dir}"
+        if quality_mode == "size" and target_bytes:
+            q_part = f"tgt:{target_bytes}"
+        else:
+            q_part = f"q:{self._qual.get()}"
+        current_config_str = (f"fmt:{fmt_now}|{q_part}|dir:{out_dir}"
                               f"|mode:{mode_key}|w:{target_w}|h:{target_h}")
 
         # Проверяем конфликты по «чистому» имени (без суффикса _1, _2 и т.д.)
@@ -2941,7 +3196,8 @@ class App(BaseClass):
             args=(files_snapshot, out_dir,
                   self._fmt.get(), self._qual.get(),
                   mode_key, target_w, target_h,
-                  self._overwrite_confirmed, batch_id),
+                  self._overwrite_confirmed, batch_id,
+                  quality_mode, target_bytes),
             daemon=True).start()
 
     # ── очередь событий GUI ───────────────────────────────────────────────────
@@ -3017,7 +3273,8 @@ class App(BaseClass):
     # ── конвертация (фоновый поток) ───────────────────────────────────────────
 
     def _convert_one(self, path, out_dir, fmt, out_name, quality,
-                     mode, target_w, target_h, current_config_str, resize_key=None):
+                     mode, target_w, target_h, current_config_str, resize_key=None,
+                     quality_mode="percent", target_bytes=None):
         """Конвертирует один файл. Вызывается из пула потоков."""
         out_path  = os.path.join(out_dir, out_name)
         error_msg = None
@@ -3176,6 +3433,15 @@ class App(BaseClass):
 
                 tmp_path = out_path + ".tmp"
                 save_fmt = "HEIF" if fmt == "HEIC" else fmt
+
+                # Режим "целевой размер файла": подбираем максимальное
+                # качество, укладывающееся в лимит, бинарным поиском.
+                # Если лимит физически недостижим даже при quality=10 —
+                # используем лучшее из достижимого (см. _find_quality_for_target_size).
+                if quality_mode == "size" and target_bytes and fmt in ("JPEG", "WEBP", "HEIC", "AVIF"):
+                    quality = self._find_quality_for_target_size(img, save_fmt, kw, target_bytes)
+                    kw["quality"] = quality
+
                 try:
                     img.save(tmp_path, save_fmt, **kw)
                     if os.path.exists(out_path):
@@ -3229,6 +3495,42 @@ class App(BaseClass):
             "size_str":  size_str,
         }
 
+    def _find_quality_for_target_size(self, img, save_fmt, base_kw, target_bytes):
+        """Бинарным поиском подбирает максимальное качество (10-100), при
+        котором закодированный в память файл не превышает target_bytes.
+
+        base_kw — уже собранные параметры сохранения (icc_profile для AVIF
+        и т.д.), кроме "quality" — она подбирается здесь и переопределяется
+        на каждой итерации. Кодирование идёт в BytesIO, не на диск — реальная
+        запись на диск происходит один раз после подбора, в вызывающем коде.
+
+        Если даже quality=10 даёт файл больше target_bytes (например,
+        очень «шумное» изображение, которое физически не сжать сильнее без
+        уменьшения разрешения) — возвращает 10 как лучший достижимый
+        результат; итоговый файл в этом случае будет больше запрошенного
+        лимита, но конвертация не прерывается.
+        """
+        lo, hi = 10, 100
+        best_q = 10
+        while lo <= hi:
+            mid = (lo + hi) // 2
+            buf = io.BytesIO()
+            test_kw = dict(base_kw)
+            test_kw["quality"] = mid
+            try:
+                img.save(buf, save_fmt, **test_kw)
+            except Exception:
+                # Это качество не удалось закодировать — считаем его
+                # недостижимым и сужаем диапазон вниз.
+                hi = mid - 1
+                continue
+            if buf.tell() <= target_bytes:
+                best_q = mid
+                lo = mid + 1
+            else:
+                hi = mid - 1
+        return best_q
+
     def _generate_unique_filename(self, out_dir, base_name, ext,
                                    reserved_names=None, allow_overwrite=False):
         """Генерирует уникальное имя файла, не конфликтующее ни с диском, ни с батчем.
@@ -3252,7 +3554,8 @@ class App(BaseClass):
             counter += 1
 
     def _convert_worker(self, files_snapshot, out_dir, fmt, quality, mode_key,
-                        target_w, target_h, allow_overwrite=False, batch_id=0):
+                        target_w, target_h, allow_overwrite=False, batch_id=0,
+                        quality_mode="percent", target_bytes=None):
         """Фоновый рабочий поток: конвертирует все файлы параллельно.
 
         batch_id штампуется на каждое сообщение в self._gui_queue — это
@@ -3268,7 +3571,15 @@ class App(BaseClass):
         ok_cnt = err_cnt = 0
         done   = 0
 
-        current_config_str = (f"fmt:{fmt}|q:{quality}|dir:{out_dir}"
+        # В режиме "целевой размер" итоговое качество разное для каждого
+        # файла, поэтому в ключ кэша попадает именно целевой размер, а не
+        # фиксированное значение quality (иначе кэш считал бы конфигурацию
+        # неизменной при смене только целевого размера файла).
+        if quality_mode == "size" and target_bytes:
+            q_part = f"tgt:{target_bytes}"
+        else:
+            q_part = f"q:{quality}"
+        current_config_str = (f"fmt:{fmt}|{q_part}|dir:{out_dir}"
                               f"|mode:{mode_key}|w:{target_w}|h:{target_h}")
         workers = min(os.cpu_count() or 4, 8)
 
@@ -3287,7 +3598,8 @@ class App(BaseClass):
             for path in files_snapshot:
                 out_name = allocated_names[path]
                 f = pool.submit(self._convert_one, path, out_dir, fmt, out_name, quality,
-                                mode_key, target_w, target_h, current_config_str, resize_key)
+                                mode_key, target_w, target_h, current_config_str, resize_key,
+                                quality_mode, target_bytes)
                 futures[f] = path
 
             for future in as_completed(futures):
