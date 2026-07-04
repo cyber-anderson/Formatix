@@ -53,12 +53,10 @@ from converter import render_filename_template, sanitize_filename_part
 
 
 def resource_path(relative_path):
-    """Получает абсолютный путь к ресурсам, работает для разработки и для PyInstaller.
+    """Абсолютный путь к ресурсам — работает и при разработке, и под PyInstaller.
 
-    Небольшое дублирование с одноимённой функцией в главном файле — она
-    слишком мала и слишком общая (просто обёртка над sys._MEIPASS), чтобы
-    заводить ради неё ещё один модуль или тянуть сюда зависимость от
-    имени главного файла.
+    Дублирует одноимённую функцию в главном файле: она слишком мала и общая
+    (обёртка над sys._MEIPASS), чтобы тянуть сюда зависимость от него ради неё.
     """
     try:
         base_path = sys._MEIPASS
@@ -117,7 +115,6 @@ def open_settings_window(app, colors):
     cb.set(LANGUAGES[app._lang])
     cb.pack(side="right")
 
-    # Выбор темы
     theme_row = tk.Frame(win, bg=BG)
     theme_row.pack(padx=24, fill="x", pady=(10, 0))
 
@@ -160,7 +157,6 @@ def open_settings_window(app, colors):
 
     theme_cb.bind("<<ComboboxSelected>>", on_theme_select)
 
-    # Чекбокс "Запоминать настройки"
     remember_row = tk.Frame(win, bg=BG, cursor="hand2")
     remember_row.pack(padx=24, fill="x", pady=(12, 0))
 
@@ -248,8 +244,8 @@ def open_settings_window(app, colors):
     fn_preset_cb.pack(fill="x")
 
     # ── Карточка "Свой шаблон" (появляется только при этом пресете) ───────
-    # Фон CARD_TINT (акцентно-тонированный, не нейтрально-серый) выбран
-    # специально, чтобы белые (CARD) кнопки токенов не сливались с карточкой.
+    # CARD_TINT (акцентный, не серый) — иначе белые (CARD) кнопки токенов
+    # сливаются с фоном карточки
     builder_card = tk.Frame(win, bg=CARD_TINT, highlightthickness=1,
                             highlightbackground=BORDER, highlightcolor=BORDER)
     # .pack() вызывается динамически в _refresh_builder_state()
@@ -412,8 +408,7 @@ def open_donate_window(app, colors):
 
     win = tk.Toplevel(app)
     win.title(app.t("donate_title"))
-    # Уменьшаем высоту окна, так как полей с кошельками больше нет
-    win.geometry("500x300")
+    win.geometry("500x300")   # полей с кошельками нет — окно компактное
     win.configure(bg=BG)
     win.transient(app)
     win.grab_set()
@@ -432,16 +427,14 @@ def open_donate_window(app, colors):
 
     def _open_wallets():
         webbrowser.open("https://github.com/cyber-anderson/Formatix#%EF%B8%8F-support-the-project")
-        win.destroy()  # Окно закроется после открытия браузера (можно убрать, если не нужно)
+        win.destroy()
 
-    # Новая кнопка в стиле кнопки "Конвертировать" (как в _btn)
     btn = tk.Button(win, text=app.t("donate_btn"),
                     font=("Segoe UI", 11, "bold"),
                     bg=ACCENT, fg="#fff", activebackground=ACCENT2,
                     activeforeground="#fff", relief="flat", padx=20, pady=9,
                     command=_open_wallets, cursor="hand2")
 
-    # Эффекты наведения для кнопки как в остальном интерфейсе
     btn.bind("<Enter>", lambda e, w=btn: w.config(bg=ACCENT2, fg="#fff"))
     btn.bind("<Leave>", lambda e, w=btn: w.config(bg=ACCENT, fg="#fff"))
     btn.pack(pady=(10, 24))
