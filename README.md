@@ -87,6 +87,16 @@ To run the script from the source code, you need **Python 3.10+** and the necess
 ```bash
 pip install Pillow pillow-heif tkinterdnd2 resvg-py
 ```
+2. Make sure all project files are in the same folder:
+
+| File | Description |
+| :--- | :--- |
+| `formatix.py` | Main app / entry point |
+| `localization.py` | UI language strings & system language detection |
+| `converter.py` | Image conversion & processing logic |
+| `compare_window.py` | Before/after comparison window |
+| `settings.py` | Settings and Donate dialog windows |
+
 2. Run the application:
 ```bash
 python formatix.py
