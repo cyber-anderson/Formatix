@@ -1817,7 +1817,7 @@ class App(BaseClass):
             messagebox.showinfo(APP_NAME, self.t("compare_no_files"))
             return
 
-        self._compare_win = CompareWindow(self, src_path, dst_path,
+        self._compare_win = Compare(self, src_path, dst_path,
                                           self.t("compare_title"), BG, BG2, BG3,
                                           FG, FG2, FG3, ACCENT, BORDER, CARD,
                                           index=idx_src)
