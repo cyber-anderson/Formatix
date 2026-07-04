@@ -17,7 +17,7 @@
 
 import tkinter as tk
 import locale
-from tkinter import ttk, filedialog, messagebox
+from tkinter import ttk, filedialog, messagebox, simpledialog
 import threading
 import webbrowser
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -29,9 +29,15 @@ import json
 import ctypes
 import subprocess
 from PIL import Image, ImageTk
-from PIL import ImageCms
-import io
-import re
+
+# CompareWindow и FancySlider — в compare_window.py
+from compare_window import CompareWindow, FancySlider
+
+# Локализация (языки, строки переводов, автоопределение языка системы)
+from localization import LANGUAGES, STRINGS, detect_system_lang, APP_NAME
+
+# Окна "Настройки" и "Донат" — в settings.py
+from settings import open_settings_window, open_donate_window
 
 # Делаем приложение четким на экранах с масштабированием (High DPI)
 try:
@@ -46,38 +52,14 @@ try:
 except Exception:
     pass
 
-HEIF_AVAILABLE = False
-try:
-    from pillow_heif import register_heif_opener
-    register_heif_opener()
-    HEIF_AVAILABLE = True
-except Exception:
-    pass
-
-AVIF_AVAILABLE = False
-try:
-    # Pillow ≥ 10 поддерживает AVIF нативно если установлен libavif.
-    # pillow-avif-plugin расширяет поддержку для старых версий Pillow.
-    try:
-        import pillow_avif  # noqa: F401 — регистрирует кодек автоматически при импорте
-    except ImportError:
-        pass
-    # Проверяем реальную возможность сохранения: создаём 1×1 AVIF в памяти
-    import io as _io
-    _test = Image.new("RGB", (1, 1))
-    _buf  = _io.BytesIO()
-    _test.save(_buf, "AVIF", quality=50)
-    AVIF_AVAILABLE = True
-    del _test, _buf, _io
-except Exception:
-    pass
-
-SVG_AVAILABLE = False
-try:
-    import resvg_py as _resvg_py
-    SVG_AVAILABLE = True
-except Exception:
-    pass
+# Определение доступности форматов (HEIF/AVIF/SVG) и логика конвертации — в converter.py
+from converter import (
+    HEIF_AVAILABLE, AVIF_AVAILABLE, SVG_AVAILABLE, FORMATS, IMG_EXTS,
+    format_size, get_file_size_str, get_svg_resolution_pure,
+    load_pil_for_display, get_image_res_str,
+    sanitize_filename_part, render_filename_template, generate_unique_filename,
+    convert_one,
+)
 
 SETTINGS_FILE = os.path.join(os.path.expanduser("~"), ".formatix_image_converter_settings.json")
 
@@ -144,7 +126,7 @@ THEME_DARK = {
     "BG": "#0f0f1a", "BG2": "#181825", "BG3": "#1e1e2e", "CARD": "#232336",
     "ACCENT": "#c678dd", "ACCENT2": "#ff6b9d", "HEART_RED": "#ff3366",
     "GREEN": "#a8ff78", "FG": "#cdd6f4", "FG2": "#6c7086", "FG3": "#45475a",
-    "BORDER": "#313244",
+    "BORDER": "#313244", "CARD_TINT": "#1c1530",
 }
 
 # Светлая тема — тот же оттенок акцента (фиолетово-розовый), но на светлом фоне
@@ -152,7 +134,7 @@ THEME_LIGHT = {
     "BG": "#fafafc", "BG2": "#f0f0f5", "BG3": "#e6e6ee", "CARD": "#ffffff",
     "ACCENT": "#9c4dcc", "ACCENT2": "#e0457f", "HEART_RED": "#e0304f",
     "GREEN": "#4a9a1f", "FG": "#1e1e2e", "FG2": "#5c5c70", "FG3": "#b8b8c8",
-    "BORDER": "#d4d4dc",
+    "BORDER": "#d4d4dc", "CARD_TINT": "#f3e9fb",
 }
 
 THEMES = {"dark": THEME_DARK, "light": THEME_LIGHT}
@@ -182,9 +164,9 @@ FG      = _palette["FG"]
 FG2     = _palette["FG2"]
 FG3     = _palette["FG3"]
 BORDER  = _palette["BORDER"]
+CARD_TINT = _palette["CARD_TINT"]
 
-APP_NAME = "Formatix Image Converter"
-VERSION  = "1.15.0"
+VERSION  = "1.16.0"
 
 # Константы анимации сердечка
 _HEART_BEAT1_MS   = 120
@@ -193,402 +175,6 @@ _HEART_BEAT3_MS   = 370
 _HEART_MIN_IDLE   = 1800
 _HEART_MAX_IDLE   = 2600
 
-FORMATS = (["AVIF"] if AVIF_AVAILABLE else []) + ["WEBP", "JPEG"] + (["HEIC"] if HEIF_AVAILABLE else []) + ["PNG", "BMP", "TIFF", "ICO"]
-IMG_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tiff", ".tif", ".gif", ".ico"} | ({".avif"} if AVIF_AVAILABLE else set()) | ({".heic", ".heif"} if HEIF_AVAILABLE else set()) | ({".svg"} if SVG_AVAILABLE else set())
-
-# ── LOCALIZATION ───────────────────────────────────────────────────────────────
-LANGUAGES = {"en": "English", "ru": "Русский", "uk": "Українська", "de": "Deutsch", "zh": "中文"}
-
-STRINGS = {
-    "en": {
-        "add": "+ Add", "clear": "✕ Clear",
-        "src_panel": "📂  Source Files", "dst_panel": "✅  Result",
-        "save_folder": "SAVE FOLDER", "folder_placeholder": "not selected — will be asked on convert",
-        "pick_dir": "📁 Choose", "format_lbl": "FORMAT", "quality_lbl": "QUALITY",
-        "resize_lbl": "CHANGING RESOLUTION", "progress_lbl": "PROGRESS",
-        "filesize_lbl": "FILE SIZE", "was": "Was:", "became": "Became:",
-        "convert_btn": "▶  Convert", "processing_btn": "▶  Processing...", "stop_btn": "■  Stop",
-        "col_filename": "File Name", "col_res": "Resolution", "col_size": "Size", "col_status": "Status",
-        "drop_hint": "Drag images here\nor click to browse", "drop_release": "Release files here!",
-        "ready": "Ready", "files_count": "Files: {n}",
-        "cleared": "List cleared",
-        "warn_no_files": "Add files first!",
-        "warn_bad_size": "Please enter width and height values.",
-        "overwrite_title": "Files exist",
-        "overwrite_msg": "The following files already exist in the output folder:\n\n{names}\n\nReplace them?",
-        "overwrite_more": "\n... and {n} more",
-        "resize_no_change": "No changes",
-        "resize_prop_w": "Proportional (by width)",
-        "resize_prop_h": "Proportional (by height)",
-        "resize_crop": "Smart Crop (Fill)",
-        "settings_title": "Settings",
-        "settings_lang": "Interface language",
-        "settings_close": "Close",
-        "donate_title": "Support Development",
-        "donate_sub": f"Thanks for using {APP_NAME}!",
-        "donate_desc": "If the program saved your time, you can\nsupport its development:",
-        "donate_copied": "Address copied!",
-        "donate_close": "Close",
-        "donate_btn": "Open page with wallets",
-        "auto": "Auto",
-        "cache_tag": " (cache)",
-        "resize_custom": "Custom",
-        "ico_too_large_title": "ICO size limit",
-        "ico_too_large_msg": "ICO format does not support resolutions above 256×256.\nThe image will be resized to fit.",
-        "ico_too_large_cancel": "Cancel",
-        "ico_too_large_ok": "OK",
-        "settings_remember": "Remember settings",
-        "settings_theme": "Theme", "theme_dark": "Dark", "theme_light": "Light",
-        "theme_restart_note": "Restart the app to apply the new theme.",
-        "svg_no_size_title": "SVG: size required",
-        "svg_no_size_msg": "SVG files have no fixed resolution.\nPlease set width and height in “Custom” mode before converting.",
-        "compare_btn": "🆚 Compare", "compare_title": "Comparison",
-        "compare_no_files": "No files to compare",
-        "qmode_percent": "%", "qmode_size": "Size",
-        "warn_bad_target_size": "Please enter a valid target file size (greater than 0).",
-    },
-    "ru": {
-        "add": "+ Добавить", "clear": "✕ Очистить",
-        "src_panel": "📂  Исходные файлы", "dst_panel": "✅  Результат",
-        "save_folder": "ПАПКА ДЛЯ СОХРАНЕНИЯ", "folder_placeholder": "не выбрана — будет запрошена при конвертации",
-        "pick_dir": "📁 Выбрать", "format_lbl": "ФОРМАТ", "quality_lbl": "КАЧЕСТВО",
-        "resize_lbl": "ИЗМЕНЕНИЕ РАЗРЕШЕНИЯ", "progress_lbl": "ПРОГРЕСС",
-        "filesize_lbl": "РАЗМЕР ФАЙЛОВ", "was": "Было: ", "became": "Стало:",
-        "convert_btn": "▶  Конвертировать", "processing_btn": "▶  Обработка...", "stop_btn": "■  Остановить",
-        "col_filename": "Имя файла", "col_res": "Разрешение", "col_size": "Размер", "col_status": "Статус",
-        "drop_hint": "Переместите изображения сюда\nили нажмите для обзора", "drop_release": "Отпустите файлы здесь!",
-        "ready": "Готов к работе", "files_count": "Файлов: {n}",
-        "cleared": "Список очищен",
-        "warn_no_files": "Сначала добавьте файлы!",
-        "warn_bad_size": "Пожалуйста, введите значения для ширины и высоты.",
-        "overwrite_title": "Файлы существуют",
-        "overwrite_msg": "Следующие файлы уже существуют в папке назначения:\n\n{names}\n\nЗаменить их?",
-        "overwrite_more": "\n... и ещё {n} файл(ов)",
-        "resize_no_change": "Без изменений",
-        "resize_prop_w": "Пропорционально (по ширине)",
-        "resize_prop_h": "Пропорционально (по высоте)",
-        "resize_crop": "Умная обрезка (Заполнение)",
-        "settings_title": "Настройки",
-        "settings_lang": "Язык интерфейса",
-        "settings_close": "Закрыть",
-        "donate_title": "Поддержать разработку",
-        "donate_sub": f"Спасибо за использование {APP_NAME}!",
-        "donate_desc": "Если программа сэкономила ваше время, вы можете\nподдержать её развитие:",
-        "donate_copied": "Адрес успешно скопирован!",
-        "donate_close": "Закрыть",
-        "donate_btn": "Открыть страницу с кошельками",
-        "auto": "Авто",
-        "cache_tag": " (кэш)",
-        "resize_custom": "Пользовательский",
-        "ico_too_large_title": "Ограничение ICO",
-        "ico_too_large_msg": "Формат ICO не поддерживает разрешения больше 256×256.\nИзображение будет изменено по размеру.",
-        "ico_too_large_cancel": "Отмена",
-        "ico_too_large_ok": "ОК",
-        "settings_remember": "Запоминать настройки",
-        "settings_theme": "Тема", "theme_dark": "Тёмная", "theme_light": "Светлая",
-        "theme_restart_note": "Перезапустите приложение, чтобы применить новую тему.",
-        "svg_no_size_title": "SVG: требуется размер",
-        "svg_no_size_msg": "SVG-файлы не имеют фиксированного разрешения.\nПожалуйста, задайте ширину и высоту в режиме «Пользовательский» перед конвертацией.",
-        "compare_btn": "🆚 Сравнить", "compare_title": "Сравнение",
-        "compare_no_files": "Файлы для сравнения отсутствуют",
-        "qmode_percent": "%", "qmode_size": "Размер",
-        "warn_bad_target_size": "Введите корректный целевой размер файла (больше 0).",
-    },
-    "uk": {
-        "add": "+ Додати", "clear": "✕ Очистити",
-        "src_panel": "📂  Вихідні файли", "dst_panel": "✅  Результат",
-        "save_folder": "ПАПКА ДЛЯ ЗБЕРЕЖЕННЯ", "folder_placeholder": "не обрана — буде запитана при конвертації",
-        "pick_dir": "📁 Обрати", "format_lbl": "ФОРМАТ", "quality_lbl": "ЯКІСТЬ",
-        "resize_lbl": "ЗМІНА РОЗДІЛЬНОСТІ", "progress_lbl": "ПРОГРЕС",
-        "filesize_lbl": "РОЗМІР ФАЙЛІВ", "was": "Було: ", "became": "Стало:",
-        "convert_btn": "▶  Конвертувати", "processing_btn": "▶  Обробка...", "stop_btn": "■  Зупинити",
-        "col_filename": "Ім'я файлу", "col_res": "Роздільність", "col_size": "Розмір", "col_status": "Статус",
-        "drop_hint": "Перетягніть зображення сюди\nабо натисніть для огляду", "drop_release": "Відпусти файли тут!",
-        "ready": "Готовий до роботи",
-        "files_count": "Файлів: {n}",
-        "cleared": "Список очищено",
-        "warn_no_files": "Спочатку додайте файли!",
-        "warn_bad_size": "Будь ласка, введіть значення для ширини та висоти.",
-        "overwrite_title": "Файли існують",
-        "overwrite_msg": "Наступні файли вже існують у папці призначення:\n\n{names}\n\nЗамінити їх?",
-        "overwrite_more": "\n... і ще {n} файл(ів)",
-        "resize_no_change": "Без змін",
-        "resize_prop_w": "Пропорційно (по ширині)",
-        "resize_prop_h": "Пропорційно (по висоті)",
-        "resize_crop": "Розумне кадрування (Заповнення)",
-        "settings_title": "Налаштування",
-        "settings_lang": "Мова інтерфейсу",
-        "settings_close": "Закрити",
-        "donate_title": "Підтримати розробку",
-        "donate_sub": f"Дякую за використання {APP_NAME}!",
-        "donate_desc": "Якщо програма заощадила ваш час, ви можете\nпідтримати її розвиток:",
-        "donate_copied": "Адресу скопійовано!",
-        "donate_close": "Закрити",
-        "donate_btn": "Відкрити сторінку з гаманцями",
-        "auto": "Авто",
-        "cache_tag": " (кеш)",
-        "resize_custom": "Користувацький",
-        "ico_too_large_title": "Обмеження ICO",
-        "ico_too_large_msg": "Формат ICO не підтримує роздільності більше 256×256.\nЗображення буде змінено за розміром.",
-        "ico_too_large_cancel": "Скасувати",
-        "ico_too_large_ok": "ОК",
-        "settings_remember": "Запам'ятовувати налаштування",
-        "settings_theme": "Тема", "theme_dark": "Темна", "theme_light": "Світла",
-        "theme_restart_note": "Перезапустіть застосунок, щоб застосувати нову тему.",
-        "svg_no_size_title": "SVG: потрібен розмір",
-        "svg_no_size_msg": "SVG-файли не мають фіксованої роздільності.\nБудь ласка, задайте ширину і висоту в режимі «Користувацький» перед конвертацією.",
-        "compare_btn": "🆚 Порівняти", "compare_title": "Порівняння",
-        "compare_no_files": "Файли для порівняння відсутні",
-        "qmode_percent": "%", "qmode_size": "Розмір",
-        "warn_bad_target_size": "Введіть коректний цільовий розмір файлу (більше 0).",
-    },
-    "de": {
-        "add": "+ Hinzufügen", "clear": "✕ Leeren",
-        "src_panel": "📂  Quelldateien", "dst_panel": "✅  Ergebnis",
-        "save_folder": "SPEICHERORDNER", "folder_placeholder": "nicht ausgewählt — wird beim Konvertieren abgefragt",
-        "pick_dir": "📁 Wählen", "format_lbl": "FORMAT", "quality_lbl": "QUALITÄT",
-        "resize_lbl": "AUFLÖSUNGSÄNDERUNG", "progress_lbl": "FORTSCHRITT",
-        "filesize_lbl": "DATEIGRÖSSE", "was": "War:  ", "became": "Jetzt:",
-        "convert_btn": "▶  Konvertieren", "processing_btn": "▶  Verarbeitung...", "stop_btn": "■  Stopp",
-        "col_filename": "Dateiname", "col_res": "Auflösung", "col_size": "Größe", "col_status": "Status",
-        "drop_hint": "Ziehen Sie Bilder hierher\noder klicken Sie zum Durchsuchen", "drop_release": "Lassen Sie die Dateien hier los!",
-        "ready": "Bereit", "files_count": "Dateien: {n}",
-        "cleared": "Liste geleert",
-        "warn_no_files": "Zuerst Dateien hinzufügen!",
-        "warn_bad_size": "Bitte Werte für Breite und Höhe eingeben.",
-        "overwrite_title": "Dateien vorhanden",
-        "overwrite_msg": "Folgende Dateien existieren bereits im Zielordner:\n\n{names}\n\nErsetzen?",
-        "overwrite_more": "\n... und {n} weitere",
-        "resize_no_change": "Keine Änderung",
-        "resize_prop_w": "Proportional (nach Breite)",
-        "resize_prop_h": "Proportional (nach Höhe)",
-        "resize_crop": "Intelligenter Zuschnitt (Füllen)",
-        "settings_title": "Einstellungen",
-        "settings_lang": "Oberflächensprache",
-        "settings_close": "Schließen",
-        "donate_title": "Entwicklung unterstützen",
-        "donate_sub": f"Danke für die Nutzung von {APP_NAME}!",
-        "donate_desc": "Wenn das Programm Ihnen Zeit gespart hat, können Sie\ndessen Entwicklung unterstützen:",
-        "donate_copied": "Adresse kopiert!",
-        "donate_close": "Schließen",
-        "donate_btn": "Seite mit Wallets öffnen",
-        "auto": "Auto",
-        "cache_tag": " (Cache)",
-        "resize_custom": "Benutzerdefiniert",
-        "ico_too_large_title": "ICO-Größenbeschränkung",
-        "ico_too_large_msg": "Das ICO-Format unterstützt keine Auflösungen über 256×256.\nDas Bild wird entsprechend skaliert.",
-        "ico_too_large_cancel": "Abbrechen",
-        "ico_too_large_ok": "OK",
-        "settings_remember": "Einstellungen speichern",
-        "settings_theme": "Design", "theme_dark": "Dunkel", "theme_light": "Hell",
-        "theme_restart_note": "Starten Sie die App neu, um das neue Design zu übernehmen.",
-        "svg_no_size_title": "SVG: Größe erforderlich",
-        "svg_no_size_msg": "SVG-Dateien haben keine feste Auflösung.\nBitte geben Sie Breite und Höhe im Modus „Benutzerdefiniert“ vor der Konvertierung ein.",
-        "compare_btn": "🆚 Vergleichen", "compare_title": "Vergleich",
-        "compare_no_files": "Keine Dateien zum Vergleich vorhanden",
-        "qmode_percent": "%", "qmode_size": "Größe",
-        "warn_bad_target_size": "Bitte eine gültige Zielgröße eingeben (größer als 0).",
-    },
-    "zh": {
-        "add": "+ 添加", "clear": "✕ 清空",
-        "src_panel": "📂  源文件", "dst_panel": "✅  结果",
-        "save_folder": "保存文件夹", "folder_placeholder": "未选择 — 转换时将询问",
-        "pick_dir": "📁 选择", "format_lbl": "格式", "quality_lbl": "质量",
-        "resize_lbl": "更改分辨率", "progress_lbl": "进度",
-        "filesize_lbl": "文件大小", "was": "之前:", "became": "之后:",
-        "convert_btn": "▶  转换", "processing_btn": "▶  处理中...", "stop_btn": "■  停止",
-        "col_filename": "文件名", "col_res": "分辨率", "col_size": "大小", "col_status": "状态",
-        "drop_hint": "请拖拽图片到这里\n或点击浏览", "drop_release": "请在此释放文件！",
-        "ready": "准备就绪", "files_count": "文件数: {n}",
-        "cleared": "列表已清空",
-        "warn_no_files": "请先添加文件！",
-        "warn_bad_size": "请输入宽度和高度的值。",
-        "overwrite_title": "文件已存在",
-        "overwrite_msg": "以下文件在目标文件夹中已存在：\n\n{names}\n\n替换它们？",
-        "overwrite_more": "\n... 还有 {n} 个",
-        "resize_no_change": "不更改",
-        "resize_prop_w": "等比例（按宽度）",
-        "resize_prop_h": "等比例（按高度）",
-        "resize_crop": "智能裁剪（填充）",
-        "settings_title": "设置",
-        "settings_lang": "界面语言",
-        "settings_close": "关闭",
-        "donate_title": "支持开发",
-        "donate_sub": f"感谢使用 {APP_NAME}！",
-        "donate_desc": "如果该程序节省了您的时间，您可以\n支持它的开发：",
-        "donate_copied": "地址已复制！",
-        "donate_close": "关闭",
-        "donate_btn": "打开钱包页面",
-        "auto": "自动",
-        "cache_tag": " (缓存)",
-        "resize_custom": "自定义",
-        "ico_too_large_title": "ICO 尺寸限制",
-        "ico_too_large_msg": "ICO 格式不支持超过 256×256 的分辨率。\n图像将被调整大小。",
-        "ico_too_large_cancel": "取消",
-        "ico_too_large_ok": "确定",
-        "settings_remember": "记住设置",
-        "settings_theme": "主题", "theme_dark": "深色", "theme_light": "浅色",
-        "theme_restart_note": "重启应用以应用新主题。",
-        "svg_no_size_title": "SVG：需要指定尺寸",
-        "svg_no_size_msg": "SVG 文件没有固定分辨率。\n请在「自定义」模式下设置宽度和高度后再进行转换。",
-        "compare_btn": "🆚 对比", "compare_title": "对比",
-        "compare_no_files": "没有可对比的文件",
-        "qmode_percent": "%", "qmode_size": "大小",
-        "warn_bad_target_size": "请输入有效的目标文件大小（大于 0）。",
-    },
-}
-
-
-def format_size(size_bytes):
-    """Возвращает читаемый размер файла (KB / MB)."""
-    if size_bytes < 1024 * 1024:
-        return f"{size_bytes / 1024:.1f} KB"
-    return f"{size_bytes / (1024 * 1024):.2f} MB"
-
-
-def get_file_size_str(path):
-    """Возвращает размер файла на диске в виде строки."""
-    try:
-        return format_size(os.path.getsize(path))
-    except Exception:
-        return "?? KB"
-
-
-def get_svg_resolution_pure(path):
-    """Быстро и безопасно находит размеры SVG через регулярные выражения."""
-    try:
-        # Читаем только самое начало файла (этого хватит для тега <svg>)
-        with open(path, "rb") as f:
-            raw_bytes = f.read(8192)
-        
-        text = raw_bytes.decode("utf-8", errors="ignore").strip()
-        
-        # 1. Ищем тег <svg ...> целиком
-        svg_tag_match = re.search(r"<svg([^>]+)>", text, re.IGNORECASE)
-        if not svg_tag_match:
-            return None, None
-            
-        svg_body = svg_tag_match.group(1)
-        
-        # 2. Пробуем вытащить явные width и height
-        w_match = re.search(r'width=["\']\s*([\d.]+)(?:px|pt|em|cm|mm)?\s*["\']', svg_body)
-        h_match = re.search(r'height=["\']\s*([\d.]+)(?:px|pt|em|cm|mm)?\s*["\']', svg_body)
-        
-        if w_match and h_match:
-            return int(float(w_match.group(1))), int(float(h_match.group(1)))
-            
-        # 3. Если их нет, ищем viewBox="x y width height"
-        vb_match = re.search(r'viewBox=["\']\s*(-?[\d.]+)\s+(-?[\d.]+)\s+([\d.]+)\s+([\d.]+)\s*["\']', svg_body)
-        if vb_match:
-            return int(float(vb_match.group(3))), int(float(vb_match.group(4)))
-            
-    except Exception as e:
-        pass
-        
-    return None, None
-
-
-def load_pil_for_display(path):
-    """Загружает изображение для отображения в окне сравнения.
-
-    Единая точка входа для CompareWindow._load_pil.  Поддерживает:
-    • SVG через resvg_py (рендер до 2048 px по длинной стороне)
-    • ICC-коррекцию растровых форматов (любой профиль → sRGB)
-    • CMYK → RGB до ICC (ImageCms не принимает CMYK напрямую)
-    • UTF-16 BOM, UTF-8 BOM и plain-UTF-8 для SVG
-
-    Вынесена на уровень модуля, чтобы её мог переиспользовать любой
-    компонент приложения без дублирования кода.
-    """
-    ext = os.path.splitext(path)[1].lower()
-    fallback = Image.new("RGB", (4, 4), (30, 30, 46))
-
-    # ── SVG: рендерим через resvg_py ─────────────────────────────────────────
-    if ext == ".svg" and SVG_AVAILABLE:
-        try:
-            with open(path, "rb") as _fb:
-                _raw = _fb.read()
-            if _raw[:2] in (b"\xff\xfe", b"\xfe\xff"):
-                svg_str = _raw.decode("utf-16")
-            elif _raw[:3] == b"\xef\xbb\xbf":
-                svg_str = _raw[3:].decode("utf-8", errors="replace")
-            else:
-                svg_str = _raw.decode("utf-8", errors="replace")
-
-            native_w, native_h = get_svg_resolution_pure(path)
-
-            # Ограничиваем размер рендера: большего для предпросмотра не нужно,
-            # а _recompute_fit потом сам масштабирует под холст через LANCZOS.
-            MAX_SVG = 2048
-            if native_w and native_h:
-                long_side = max(native_w, native_h)
-                if long_side > MAX_SVG:
-                    k = MAX_SVG / long_side
-                    render_w = max(1, int(native_w * k))
-                    render_h = max(1, int(native_h * k))
-                else:
-                    render_w, render_h = native_w, native_h
-                png_bytes = _resvg_py.svg_to_bytes(
-                    svg_string=svg_str, width=render_w, height=render_h)
-            else:
-                # SVG без явных размеров: resvg сам сохранит пропорции по viewBox
-                png_bytes = _resvg_py.svg_to_bytes(
-                    svg_string=svg_str, width=MAX_SVG, height=None)
-
-            img = Image.open(io.BytesIO(png_bytes))
-            img.load()
-            if img.mode not in ("RGB", "RGBA"):
-                img = img.convert("RGBA")
-            return img
-        except Exception:
-            return fallback
-
-    # ── Растровые форматы ─────────────────────────────────────────────────────
-    try:
-        img = Image.open(path)
-        img.load()
-
-        # CMYK → RGB до ICC-коррекции (ImageCms не принимает CMYK напрямую)
-        if img.mode == "CMYK":
-            img = img.convert("RGB")
-
-        # ICC-коррекция: приводим к sRGB для корректного отображения на экране
-        try:
-            icc_profile = img.info.get("icc_profile")
-            if icc_profile:
-                src_profile = ImageCms.ImageCmsProfile(io.BytesIO(icc_profile))
-                dst_profile = ImageCms.createProfile("sRGB")
-                out_mode = "RGBA" if img.mode in ("RGBA", "PA", "LA") else "RGB"
-                img = ImageCms.profileToProfile(
-                    img, src_profile, dst_profile, outputMode=out_mode)
-        except Exception:
-            pass  # если ICC не распознан — показываем как есть
-
-        # Нормализуем итоговый режим
-        if img.mode not in ("RGB", "RGBA"):
-            img = img.convert("RGBA" if "A" in img.mode else "RGB")
-
-        return img
-    except Exception:
-        return fallback
-
-
-def get_image_res_str(path):
-    """Возвращает разрешение изображения в виде строки 'WxH'."""
-    ext = os.path.splitext(path)[1].lower()
-    
-    if ext == ".svg":
-        w, h = get_svg_resolution_pure(path)
-        if w and h:
-            return f"{w}x{h}"
-        return "SVG"  # Запасной вариант, если размеров внутри вообще нет
-        
-    try:
-        with Image.open(path) as img:
-            w, h = img.size
-            return f"{w}x{h}"
-    except Exception:
-        return "??x??"
 
 def resource_path(relative_path):
     """Получает абсолютный путь к ресурсам, работает для разработки и для PyInstaller."""
@@ -610,76 +196,6 @@ def open_path(path):
             subprocess.Popen(["xdg-open", path])
     except Exception:
         pass
-
-
-def detect_system_lang():
-    """Определяет язык интерфейса системы.
-
-    Порядок проверки:
-    1. Windows UI language через GetUserDefaultUILanguage (самый надёжный на Windows)
-    2. Реестр Windows — текущий пользователь
-    3. Unix-переменные окружения LANG / LANGUAGE / LC_ALL / LC_MESSAGES
-    4. locale.getlocale() как последний запасной вариант
-    """
-    # Таблица: LCID / BCP-47 префикс → код приложения
-    _LANG_MAP = {
-        "ru": "ru", "uk": "uk", "de": "de",
-        "zh": "zh", "be": "ru",
-    }
-
-    # ── 1. Windows: GetUserDefaultUILanguage ─────────────────────────────────
-    if sys.platform == "win32":
-        try:
-            lcid = ctypes.windll.kernel32.GetUserDefaultUILanguage()
-            # LCID: младший байт — основной язык, старший — диалект
-            primary = lcid & 0x3FF
-            # https://docs.microsoft.com/en-us/openspecs/windows_protocols/ms-lcid
-            _LCID_PRIMARY = {
-                0x19: "ru",  # Russian
-                0x22: "uk",  # Ukrainian
-                0x23: "be",  # Belarusian
-                0x07: "de",  # German
-                0x04: "zh",  # Chinese
-            }
-            if primary in _LCID_PRIMARY:
-                return _LANG_MAP.get(_LCID_PRIMARY[primary], "en")
-        except Exception:
-            pass
-
-        # ── 2. Windows: реестр ────────────────────────────────────────────────
-        try:
-            import winreg
-            with winreg.OpenKey(
-                    winreg.HKEY_CURRENT_USER,
-                    r"Control Panel\International") as key:
-                locale_val, _ = winreg.QueryValueEx(key, "LocaleName")
-            # LocaleName вида "ru-RU", "uk-UA", "de-DE", "zh-CN"
-            prefix = locale_val.lower().split("-")[0]
-            if prefix in _LANG_MAP:
-                return _LANG_MAP[prefix]
-        except Exception:
-            pass
-
-    # ── 3. Unix: переменные окружения ─────────────────────────────────────────
-    for env_var in ("LANG", "LANGUAGE", "LC_ALL", "LC_MESSAGES"):
-        val = os.environ.get(env_var, "")
-        if val:
-            prefix = val.lower().split(".")[0].split("_")[0]
-            if prefix in _LANG_MAP:
-                return _LANG_MAP[prefix]
-            if val.lower().startswith("zh"):
-                return "zh"
-
-    # ── 4. locale.getlocale() ─────────────────────────────────────────────────
-    try:
-        val = locale.getlocale()[0] or ""
-        prefix = val.lower().split("_")[0]
-        if prefix in _LANG_MAP:
-            return _LANG_MAP[prefix]
-    except Exception:
-        pass
-
-    return "en"
 
 
 # ── КАСТОМНЫЙ СКРОЛЛБАР С АВТОСКРЫТИЕМ (ВЕРТИКАЛЬНЫЙ) ──────────────────────────
@@ -724,85 +240,6 @@ class CustomScrollbar(tk.Canvas):
         if h > 0:
             pos = event.y / h
             self.target.yview_moveto(pos)
-
-
-# ── СЛАЙДЕР КАЧЕСТВА ──────────────────────────────────────────────────────────
-class FancySlider(tk.Frame):
-    """Ползунок качества с числовым полем ввода."""
-
-    def __init__(self, parent, from_=10, to=100, variable=None, width=180, **kw):
-        kw.pop("bg", None)
-        kw.pop("height", None)
-        super().__init__(parent, bg=BG2)
-        self._var   = variable or tk.IntVar(value=85)
-        self.from_  = from_
-        self.to     = to
-
-        # Стиль конфигурируется один раз снаружи (_style_ttk в App)
-        self.scale = ttk.Scale(self, from_=from_, to=to, orient="horizontal",
-                               variable=self._var, style="FS.Horizontal.TScale",
-                               length=width - 50, command=self._on_scale_move)
-        self.scale.pack(side="left", padx=(0, 6))
-
-        # При клике на сам слайдер принудительно забираем фокус у поля ввода, 
-        # чтобы разблокировать обновление текста во время перетаскивания.
-        self.scale.bind("<Button-1>", lambda e: self.scale.focus_set())
-
-        self.entry_var = tk.StringVar(value=str(self._var.get()))
-        self.entry = tk.Entry(self, textvariable=self.entry_var,
-                              font=("Segoe UI", 10, "bold"),
-                              bg=ACCENT, fg="#fff", width=4,
-                              bd=0, justify="center", insertbackground="#fff")
-        self.entry.pack(side="left", ipady=1)
-
-        self.entry_var.trace_add("write", self._on_entry_write)
-        self._var.trace_add("write", self._on_var_update)
-
-    def _on_scale_move(self, v):
-        rounded = round(float(v))
-        if self._var.get() != rounded:
-            self._var.set(rounded)
-
-    def _on_var_update(self, *args):
-        # Обновляем поле ввода только если пользователь прямо сейчас не вводит в него текст
-        if self.focus_get() != self.entry:
-            self.entry_var.set(str(self._var.get()))
-        # Если фокус в поле, обновляем ползунок (чтобы клавиатура работала)
-    def _on_entry_write(self, *args):
-        if self.focus_get() != self.entry:
-            return
-        val_str = self.entry_var.get()
-        if not val_str.isdigit():
-            if val_str == "":
-                self._var.set(self.from_)
-            return
-        val = int(val_str)
-        # Ограничиваем диапазон и корректируем поле если вышло за границы
-        if val > self.to:
-            # Откладываем обновление entry_var через after чтобы избежать
-            # рекурсии внутри trace_add("write")
-            self._var.set(self.to)
-            self.entry.after(0, lambda: self.entry_var.set(str(self.to)))
-            return
-        if val < self.from_ and len(val_str) >= len(str(self.from_)):
-            # Корректируем только если введено достаточно цифр (не в процессе набора)
-            self._var.set(self.from_)
-            self.entry.after(0, lambda: self.entry_var.set(str(self.from_)))
-            return
-        self._var.set(val)
-
-    def set_enabled(self, enabled: bool):
-        """Включает или отключает слайдер визуально."""
-        if enabled:
-            self.scale.config(state="normal")
-            self.entry.config(state="normal", bg=ACCENT, fg="#fff",
-                              font=("Segoe UI", 10, "bold"))
-            self.entry_var.set(str(self._var.get()))
-        else:
-            self.scale.config(state="disabled")
-            self.entry.config(state="disabled", bg=BG3, fg=FG3,
-                              font=("Consolas", 10, "bold"))
-            self.entry_var.set("—")
 
 
 class SegmentedToggle(tk.Frame):
@@ -911,662 +348,6 @@ class SegmentedToggle(tk.Frame):
         self._redraw()
 
 
-# ── ОКНО СРАВНЕНИЯ ────────────────────────────────────────────────────────────
-
-class CompareWindow(tk.Toplevel):
-    """Полноэкранное окно сравнения исходного и результирующего изображений.
-
-    Реализует слайдер-разделитель (split-view): пользователь тянет линию
-    влево/вправо и видит левую часть (оригинал) и правую (результат).
-
-    Также поддерживает увеличение (ползунок зума 100–400%) и панорамирование.
-
-    Производительность: дорогой ресемплинг (LANCZOS) больших исходных
-    изображений выполняется только при открытии окна, при изменении его
-    размера и при изменении зума — результат кэшируется в self._src_fit /
-    self._dst_fit. При перетаскивании разделителя или панорамировании
-    выполняется только дешёвая операция обрезки (crop) уже готовых
-    изображений, а объекты на холсте не удаляются и пересоздаются, а лишь
-    двигаются/обновляются (coords / itemconfigure). Кроме того, частые
-    события <B1-Motion> объединяются через after_idle в один кадр
-    перерисовки, чтобы очередь событий не накапливалась и интерфейс не
-    "отставал" от курсора.
-    """
-
-    _DIVIDER_W = 3   # ширина линии разделителя в пикселях
-    _RESIZE_DEBOUNCE_MS = 80  # задержка пересчёта при изменении размера окна / зума
-    _ZOOM_MIN_PCT = 100
-    _ZOOM_MAX_PCT = 400
-    _ZOOM_WHEEL_STEP_PCT = 10  # шаг изменения зума колесом мыши
-
-    def __init__(self, master, src_path, dst_path, title,
-                 bg, bg2, bg3, fg, fg2, fg3, accent, border, card, index=0):
-        super().__init__(master)
-        self.title(title)
-        self.configure(bg=bg)
-        
-        # Разворачиваем окно (максимизируем), оставляя панель задач видимой
-        try:
-            self.state("zoomed")  # Стандартный способ для Windows
-        except tk.TclError:
-            self.attributes("-zoomed", True)  # Резервный вариант для Linux
-
-        # Оставляем только закрытие окна по кнопке Escape
-        self.bind("<Escape>", lambda e: self.destroy())
-        # Переключение между файлами для сравнения — стрелками с клавиатуры
-        self.bind("<Left>",  lambda e: self._navigate(-1))
-        self.bind("<Right>", lambda e: self._navigate(1))
-
-        self._bg = bg; self._bg2 = bg2; self._bg3 = bg3
-        self._fg = fg; self._fg2 = fg2; self._fg3 = fg3
-        self._accent = accent; self._border = border; self._card = card
-        self._src_path = src_path
-        self._dst_path = dst_path
-
-        # Индекс текущей пары "файл / результат" в общих списках главного окна
-        # (self.master._files / self.master._results) — используется для
-        # переключения на предыдущий/следующий файл кнопками ◀ / ▶.
-        self._pair_index = index
-
-        # Имена файлов для подписей
-        self._src_name = os.path.basename(src_path)
-        self._dst_name = os.path.basename(dst_path)
-
-        # Загружаем изображения
-        self._src_pil = self._load_pil(src_path)
-        self._dst_pil = self._load_pil(dst_path)
-
-        # Позиция разделителя (0.0 – 1.0 от ширины холста)
-        self._split = 0.5
-        self._dragging_divider = False
-        self._panning_lmb = False
-
-        # Кэш изображений, уже подогнанных под текущий размер холста и зум.
-        # Пересчитывается только в _recompute_fit() — НЕ на каждый кадр.
-        # При зуме > 100% self._img_w/_img_h могут превышать размер холста —
-        # видимая часть (viewport) вычисляется в _redraw() на основе текущего
-        # панорамирования (self._pan_x/_pan_y).
-        self._src_fit = None
-        self._dst_fit = None
-        self._img_w = 0
-        self._img_h = 0
-        self._canvas_w = 0
-        self._canvas_h = 0
-        # Кэш viewport-параметров последнего _redraw — нужен для корректного
-        # хит-теста и зажима разделителя в границы картинки (_on_mouse_move,
-        # _on_press, _update_split_from_x).
-        self._off_x = 0   # отступ слева до начала картинки (letterbox)
-        self._vw    = 0   # ширина видимой части картинки на холсте
-
-        # Зум и панорамирование
-        self._zoom = 1.0          # 1.0 = "по размеру окна", максимум — _ZOOM_MAX_PCT/100
-        self._zoom_var = tk.IntVar(value=100) # Переменная для FancySlider
-        self._zoom_var.trace_add("write", lambda *a: self._on_zoom_var_change())
-
-        self._pan_x = 0.0
-        self._pan_y = 0.0
-        self._pan_last_x = 0
-        self._pan_last_y = 0
-        self._zoom_job = None
-
-        # id объектов на холсте — создаются один раз, далее только двигаются
-        self._left_item = None
-        self._right_item = None
-        self._divider_item = None
-        self._handle_item = None
-        self._handle_text_item = None
-        self._lbl_before_bg = None
-        self._lbl_before_text = None
-        self._lbl_after_bg = None
-        self._lbl_after_text = None
-
-        # Ссылки на PhotoImage, чтобы избежать сборки мусора
-        self._left_photo = None
-        self._right_photo = None
-
-        # Отложенный пересчёт при ресайзе + флаг "кадр уже запланирован"
-        self._resize_job = None
-        self._redraw_pending = False
-
-        self._build_ui()
-        self.after(50, self._recompute_fit_and_redraw)   # ждём финального размера окна
-
-    # ── загрузка ──────────────────────────────────────────────────────────────
-
-    def _load_pil(self, path):
-        """Делегирует загрузку в модульную функцию load_pil_for_display.
-
-        Вся логика (SVG, ICC, CMYK) живёт в одном месте и переиспользуется
-        другими компонентами без дублирования кода.
-        """
-        return load_pil_for_display(path)
-
-    # ── построение UI ─────────────────────────────────────────────────────────
-
-    def _build_ui(self):
-        # Нижняя панель с заголовком
-        top = tk.Frame(self, bg=self._bg2, pady=6)
-        tk.Frame(self, bg=self._border, height=1).pack(fill="x", side="bottom")
-        top.pack(fill="x", side="bottom")
-
-        self._title_lbl = tk.Label(top, text=f"{self._src_name}   ⇄   {self._dst_name}",
-                 font=("Segoe UI", 11, "bold"),
-                 bg=self._bg2, fg=self._fg)
-        self._title_lbl.pack(side="left", padx=16)
-
-        # Кнопки переключения на предыдущий / следующий файл сравнения —
-        # по центру верхней панели.
-        nav_frame = tk.Frame(top, bg=self._bg2)
-        nav_frame.place(relx=0.5, rely=0.5, anchor="center")
-
-        self._nav_prev_btn = tk.Label(nav_frame, text="◀", font=("Segoe UI", 12, "bold"),
-                                      bg=self._bg2, fg=self._fg2, cursor="hand2", padx=10)
-        self._nav_prev_btn.pack(side="left")
-        self._nav_prev_btn.bind("<Button-1>", lambda e: self._navigate(-1))
-        self._nav_prev_btn.bind("<Enter>", lambda e: self._on_nav_hover(self._nav_prev_btn, True))
-        self._nav_prev_btn.bind("<Leave>", lambda e: self._on_nav_hover(self._nav_prev_btn, False))
-
-        self._nav_counter_lbl = tk.Label(nav_frame, text="", font=("Segoe UI", 9),
-                                         bg=self._bg2, fg=self._fg3, padx=8)
-        self._nav_counter_lbl.pack(side="left")
-
-        self._nav_next_btn = tk.Label(nav_frame, text="▶", font=("Segoe UI", 12, "bold"),
-                                      bg=self._bg2, fg=self._fg2, cursor="hand2", padx=10)
-        self._nav_next_btn.pack(side="left")
-        self._nav_next_btn.bind("<Button-1>", lambda e: self._navigate(1))
-        self._nav_next_btn.bind("<Enter>", lambda e: self._on_nav_hover(self._nav_next_btn, True))
-        self._nav_next_btn.bind("<Leave>", lambda e: self._on_nav_hover(self._nav_next_btn, False))
-
-        self._update_nav_buttons()
-
-        # Ползунок зума (100% – 400%)
-        zoom_frame = tk.Frame(top, bg=self._bg2)
-        zoom_frame.pack(side="right", padx=(0, 18))
-
-        tk.Label(zoom_frame, text="🔍", font=("Segoe UI", 10),
-                 bg=self._bg2, fg=self._fg2).pack(side="left", padx=(0, 4))
-
-        self._zoom_slider = FancySlider(
-            zoom_frame, from_=self._ZOOM_MIN_PCT, to=self._ZOOM_MAX_PCT,
-            variable=self._zoom_var, width=140
-        )
-        self._zoom_slider.pack(side="left")
-
-        self._zoom_lbl = tk.Label(zoom_frame, text="100%", font=("Segoe UI", 9),
-                                  bg=self._bg2, fg=self._fg2, width=4, anchor="w")
-        self._zoom_lbl.pack(side="left", padx=(6, 0))
-
-
-        # Основной холст
-        self._canvas = tk.Canvas(self, bg=self._bg, highlightthickness=0,
-                                 cursor="hand2")
-        self._canvas.pack(fill="both", expand=True)
-
-        self._canvas.bind("<Configure>",       self._on_resize)
-        self._canvas.bind("<Motion>",          self._on_mouse_move) # Отслеживание движения мыши
-        self._canvas.bind("<ButtonPress-1>",   self._on_press)
-        self._canvas.bind("<B1-Motion>",       self._on_drag)
-        self._canvas.bind("<ButtonRelease-1>", self._on_release)
-
-        # Зум колесом мыши прямо на холсте (Windows/macOS: <MouseWheel>,
-        # Linux: <Button-4>/<Button-5>)
-        self._canvas.bind("<MouseWheel>", self._on_mousewheel_zoom)
-        self._canvas.bind("<Button-4>",   lambda e: self._on_mousewheel_zoom(e, direction=1))
-        self._canvas.bind("<Button-5>",   lambda e: self._on_mousewheel_zoom(e, direction=-1))
-
-    # ── события ───────────────────────────────────────────────────────────────
-
-    def _on_resize(self, e):
-        # Debounce: при серии событий <Configure> (например, во время плавного
-        # изменения размера окна) пересчитываем подогнанные изображения только
-        # один раз — после того как пользователь перестал менять размер.
-        if self._resize_job is not None:
-            self.after_cancel(self._resize_job)
-        self._resize_job = self.after(self._RESIZE_DEBOUNCE_MS,
-                                       self._recompute_fit_and_redraw)
-
-    def _on_mouse_move(self, e):
-        # Если мы уже что-то тянем, курсор не меняем
-        if self._dragging_divider or self._panning_lmb:
-            return
-        cw = self._canvas_w or self._canvas.winfo_width()
-        # divider_x — реальное положение линии на холсте (зажатое в картинку)
-        divider_x = max(self._off_x,
-                        min(self._off_x + self._vw if self._vw else cw,
-                            int(cw * self._split)))
-        # Курсор-стрелки только если мышь над линией И внутри картинки
-        img_left  = self._off_x
-        img_right = self._off_x + self._vw if self._vw else cw
-        if img_left <= e.x <= img_right and abs(e.x - divider_x) <= 15:
-            self._canvas.config(cursor="sb_h_double_arrow")
-        else:
-            self._canvas.config(cursor="hand2")
-
-    def _on_press(self, e):
-        cw = self._canvas_w or self._canvas.winfo_width()
-        divider_x = max(self._off_x,
-                        min(self._off_x + self._vw if self._vw else cw,
-                            int(cw * self._split)))
-        img_left  = self._off_x
-        img_right = self._off_x + self._vw if self._vw else cw
-        # Захват разделителя — только если клик внутри картинки и рядом с линией
-        if img_left <= e.x <= img_right and abs(e.x - divider_x) <= 15:
-            self._dragging_divider = True
-            self._canvas.config(cursor="sb_h_double_arrow")
-        else:
-            # Иначе начинаем панорамирование (тянем холст)
-            self._panning_lmb = True
-            self._pan_last_x = e.x
-            self._pan_last_y = e.y
-            self._canvas.config(cursor="fleur")
-
-    def _on_drag(self, e):
-        if self._dragging_divider:
-            self._update_split_from_x(e.x)
-        elif self._panning_lmb:
-            dx = e.x - self._pan_last_x
-            dy = e.y - self._pan_last_y
-            self._pan_last_x = e.x
-            self._pan_last_y = e.y
-            self._pan_x -= dx
-            self._pan_y -= dy
-            self._request_redraw()
-
-    def _on_release(self, e):
-        self._dragging_divider = False
-        self._panning_lmb = False
-        self._on_mouse_move(e) # Обновляем курсор после отпускания
-
-    def _update_split_from_x(self, x):
-        cw = self._canvas_w or self._canvas.winfo_width()
-        if cw <= 0:
-            return
-        # Зажимаем x в границы картинки — чтобы _split никогда не кодировал
-        # позицию за пределами изображения (letterbox-отступы слева/справа).
-        # _off_x и _vw актуальны с последнего _redraw; при первом вызове до
-        # первого рендера оба равны 0 и зажатие работает как раньше.
-        img_left  = self._off_x
-        img_right = self._off_x + self._vw if self._vw else cw
-        x_clamped = max(img_left, min(img_right, x))
-        self._split = x_clamped / cw
-        self._request_redraw()
-
-    # ── переключение между файлами для сравнения ────────────────────────────
-
-    def update_lang(self):
-        """Обновляет все надписи окна сравнения при смене языка в App."""
-        try:
-            # Заголовок окна
-            self.title(self.master.t("compare_title"))
-            # Подпись с именами файлов не меняется — это имена файлов
-            # Кнопка закрытия
-            if hasattr(self, "_close_btn"):
-                self._close_btn.config(text=self.master.t("close_btn")
-                                       if "close_btn" in (STRINGS.get(self.master._lang) or {})
-                                       else "✕ Close")
-            # Подсказка
-            if hasattr(self, "_hint_lbl"):
-                self._hint_lbl.config(text=self.master.t("compare_hint")
-                                      if "compare_hint" in (STRINGS.get(self.master._lang) or {})
-                                      else "Drag the divider  ·  Esc to close")
-            # Подписи BEFORE/AFTER на нижней полосе
-            if hasattr(self, "_lbl_before"):
-                was = self.master.t("was").replace(":", "").upper()
-                self._lbl_before.config(text=f"◀  {was}")
-            if hasattr(self, "_lbl_after"):
-                became = self.master.t("became").replace(":", "").upper()
-                self._lbl_after.config(text=f"{became}  ▶")
-            # Перерисовываем canvas чтобы обновить надписи BEFORE/AFTER на изображении
-            self._request_redraw()
-        except Exception:
-            pass
-
-    def _find_pair(self, start_idx, direction):
-        """Ищет соседний валидный индекс пары "файл / результат" в указанном
-        направлении (-1 — назад, +1 — вперёд), начиная от start_idx (сам
-        start_idx не проверяется). Валидной считается пара, где оба файла
-        (исходный и результат) существуют, а конвертация была успешной —
-        то есть та же логика, что и в App._open_compare().
-        Возвращает (idx, src_path, dst_path) или None, если такой пары нет.
-        """
-        files = getattr(self.master, "_files", [])
-        results = getattr(self.master, "_results", [])
-        total = min(len(files), len(results))
-        i = start_idx + direction
-        while 0 <= i < total:
-            src = files[i]
-            try:
-                dst, ok = results[i]
-            except (TypeError, ValueError):
-                i += direction
-                continue
-            if ok and dst and src and os.path.exists(dst) and os.path.exists(src):
-                return i, src, dst
-            i += direction
-        return None
-
-    def _navigate(self, direction):
-        btn = self._nav_prev_btn if direction < 0 else self._nav_next_btn
-        if not getattr(btn, "_enabled", True):
-            return
-        found = self._find_pair(self._pair_index, direction)
-        if found is None:
-            return
-        idx, src_path, dst_path = found
-        self._pair_index = idx
-        self._load_pair(src_path, dst_path)
-
-    def _load_pair(self, src_path, dst_path):
-        """Загружает новую пару изображений в уже открытое окно сравнения,
-        сохраняя текущий зум/панораму/позицию разделителя — удобно для
-        быстрого просмотра одного и того же участка на разных файлах.
-        """
-        self._src_path = src_path
-        self._dst_path = dst_path
-        self._src_name = os.path.basename(src_path)
-        self._dst_name = os.path.basename(dst_path)
-        self._src_pil = self._load_pil(src_path)
-        self._dst_pil = self._load_pil(dst_path)
-
-        # Сбрасываем кэш подогнанных изображений — пересчитаем под новую пару
-        self._src_fit = None
-        self._dst_fit = None
-
-        if hasattr(self, "_title_lbl"):
-            self._title_lbl.config(text=f"{self._src_name}   ⇄   {self._dst_name}")
-
-        self._update_nav_buttons()
-        self._recompute_fit_and_redraw()
-
-    def _update_nav_buttons(self):
-        if not hasattr(self, "_nav_prev_btn"):
-            return
-        has_prev = self._find_pair(self._pair_index, -1) is not None
-        has_next = self._find_pair(self._pair_index, 1) is not None
-        self._set_nav_btn_state(self._nav_prev_btn, has_prev)
-        self._set_nav_btn_state(self._nav_next_btn, has_next)
-
-        files = getattr(self.master, "_files", [])
-        results = getattr(self.master, "_results", [])
-        total = min(len(files), len(results))
-        if total and 0 <= self._pair_index < total:
-            self._nav_counter_lbl.config(text=f"{self._pair_index + 1} / {total}")
-        else:
-            self._nav_counter_lbl.config(text="")
-
-    def _set_nav_btn_state(self, btn, enabled):
-        btn._enabled = enabled
-        btn.config(fg=self._fg2 if enabled else self._bg3,
-                   cursor="hand2" if enabled else "arrow")
-
-    def _on_nav_hover(self, btn, hovering):
-        if not getattr(btn, "_enabled", True):
-            return
-        btn.config(fg=self._fg if hovering else self._fg2)
-
-    # ── зум ───────────────────────────────────────────────────────────────────
-
-    def _on_zoom_var_change(self):
-        try:
-            pct = float(self._zoom_var.get())
-        except (TypeError, ValueError, tk.TclError):
-            pct = 100.0
-            
-        pct = max(self._ZOOM_MIN_PCT, min(self._ZOOM_MAX_PCT, pct))
-        self._zoom = pct / 100.0
-        if hasattr(self, "_zoom_lbl"):
-            self._zoom_lbl.config(text=f"{int(round(pct))}%")
-
-        # Отложенный пересчёт (debounce)
-        if self._zoom_job is not None:
-            self.after_cancel(self._zoom_job)
-        self._zoom_job = self.after(self._RESIZE_DEBOUNCE_MS, self._recompute_fit_and_redraw)
-
-    def _on_mousewheel_zoom(self, e, direction=None):
-        if direction is None:
-            direction = 1 if e.delta > 0 else -1
-        current = self._zoom_var.get()
-        new_pct = current + direction * self._ZOOM_WHEEL_STEP_PCT
-        new_pct = max(self._ZOOM_MIN_PCT, min(self._ZOOM_MAX_PCT, new_pct))
-        self._zoom_var.set(int(round(new_pct))) # Изменение переменной автоматически обновит FancySlider
-
-    def _request_redraw(self):
-        """Объединяет частые события движения мыши в один кадр перерисовки.
-
-        Без этого каждое отдельное событие <B1-Motion> ставило бы в очередь
-        собственный вызов _redraw(), и при быстром перетаскивании очередь
-        событий Tk копится быстрее, чем успевает рисоваться холст — отсюда
-        ощутимое "отставание" линии сравнения от курсора. after_idle
-        гарантирует, что за один проход цикла обработки событий будет
-        выполнена только одна (последняя по времени) перерисовка.
-        """
-        if self._redraw_pending:
-            return
-        self._redraw_pending = True
-        self.after_idle(self._do_redraw)
-
-    def _do_redraw(self):
-        self._redraw_pending = False
-        self._redraw()
-
-    # ── пересчёт подогнанных изображений (дорогая операция) ─────────────────────
-
-    def _recompute_fit_and_redraw(self):
-        self._resize_job = None
-        self._zoom_job = None
-        self._recompute_fit()
-        self._redraw()
-
-    def _recompute_fit(self):
-        """Масштабирует оригинальные изображения под текущий размер холста и зум.
-
-        Выполняется только при открытии окна, при изменении размера окна и
-        при изменении зума — НЕ при каждом движении мыши/панорамировании.
-        Это самая дорогая операция (LANCZOS ресемплинг полноразмерных
-        изображений), поэтому она кэшируется в self._src_fit/self._dst_fit.
-        Short-circuit: если холст и зум не изменились — возвращаемся сразу.
-        Сама позиция видимой области (off_x/off_y, панорамирование)
-        вычисляется отдельно в _redraw() — она не требует пересчёта картинки.
-        """
-        c = self._canvas
-        cw = c.winfo_width()
-        ch = c.winfo_height()
-        if cw < 2 or ch < 2:
-            return
-
-        iw, ih = self._src_pil.size
-        base_scale = min(cw / iw, ch / ih) if iw and ih else 1
-        scale = base_scale * self._zoom
-        nw, nh = max(1, int(iw * scale)), max(1, int(ih * scale))
-
-        # Пропускаем пересчёт если холст и целевой размер не изменились
-        if (cw == self._canvas_w and ch == self._canvas_h
-                and nw == self._img_w and nh == self._img_h
-                and self._src_fit is not None):
-            return
-
-        self._canvas_w, self._canvas_h = cw, ch
-        self._img_w, self._img_h = nw, nh
-
-        self._src_fit = self._prepare_for_display(
-            self._src_pil.resize((nw, nh), Image.Resampling.LANCZOS))
-        self._dst_fit = self._prepare_for_display(
-            self._dst_pil.resize((nw, nh), Image.Resampling.LANCZOS))
-
-    def _prepare_for_display(self, img):
-        """Конвертирует RGBA → RGB с фоном цвета холста для отображения.
-
-        ImageTk.PhotoImage значительно быстрее работает с RGB, чем с RGBA —
-        это критично, поскольку PhotoImage создаётся на каждый кадр движения
-        слайдера. Цвет фона берётся через winfo_rgb(), что корректно работает
-        как с hex (#1e1e2e), так и с именованными цветами Tk ("black", "gray10").
-        """
-        if img.mode != "RGBA":
-            return img.convert("RGB") if img.mode != "RGB" else img
-        try:
-            # winfo_rgb возвращает (r, g, b) в диапазоне 0–65535
-            r, g, b = self.winfo_rgb(self._bg)
-            bg_color = (r >> 8, g >> 8, b >> 8)
-        except Exception:
-            bg_color = (30, 30, 46)
-        bg = Image.new("RGB", img.size, bg_color)
-        bg.paste(img, mask=img.split()[3])
-        return bg
-
-    # ── отрисовка (лёгкая операция — без ресемплинга) ────────────────────────────
-
-    def _redraw(self):
-        if self._src_fit is None or self._canvas_w < 2:
-            self._recompute_fit()
-            if self._src_fit is None:
-                return
-
-        cw, ch = self._canvas_w, self._canvas_h
-        img_w, img_h = self._img_w, self._img_h
-
-        # Видимая область (viewport) внутри (возможно увеличенного) изображения.
-        # Если изображение меньше холста по какой-то оси — оно центрируется
-        # (letterbox), как и раньше при зуме 100%. Если больше — заполняет
-        # холст по этой оси целиком, и доступно панорамирование в её пределах.
-        vw = min(cw, img_w)
-        vh = min(ch, img_h)
-        max_pan_x = max(0, img_w - vw)
-        max_pan_y = max(0, img_h - vh)
-        self._pan_x = max(0, min(max_pan_x, self._pan_x))
-        self._pan_y = max(0, min(max_pan_y, self._pan_y))
-        view_x, view_y = int(self._pan_x), int(self._pan_y)
-
-        off_x = (cw - vw) // 2
-        off_y = (ch - vh) // 2
-
-        # Кэшируем для _on_mouse_move / _on_press / _update_split_from_x
-        self._off_x = off_x
-        self._vw    = vw
-
-        split_x = int(cw * self._split)
-
-        # Позиция разделителя зажата в границы картинки: линия никогда не
-        # уходит в пустой letterbox-отступ слева/справа.
-        divider_x = max(off_x, min(off_x + vw, split_x))
-
-        # Только обрезка уже готовых изображений — никакого ресемплинга.
-        # Это дешёвая операция даже для очень больших исходных фото, и не
-        # зависит от того, насколько увеличено изображение, так как обрезаем
-        # не весь увеличенный кадр, а только видимую (размером с холст) часть.
-        left_px = max(0, min(vw, split_x - off_x))
-
-        # Двойной буфер PhotoImage: держим ссылку на предыдущие объекты до тех
-        # пор, пока не обновим Canvas — иначе Tk может обратиться к уже
-        # удалённому PhotoImage и получить мерцание или падение.
-        prev_left  = self._left_photo
-        prev_right = self._right_photo
-
-        if left_px > 0 and vh > 0:
-            left_crop = self._src_fit.crop(
-                (view_x, view_y, view_x + left_px, view_y + vh))
-            self._left_photo = ImageTk.PhotoImage(left_crop)
-        else:
-            self._left_photo = None
-
-        # right_px — ширина правой части: от split до правого края картинки.
-        # Когда left_px == 0 (разделитель у левого края) правая часть
-        # покрывает всю картинку целиком — картинка не исчезает.
-        right_px = vw - left_px
-        if right_px > 0 and vh > 0:
-            right_crop = self._dst_fit.crop(
-                (view_x + left_px, view_y, view_x + vw, view_y + vh))
-            self._right_photo = ImageTk.PhotoImage(right_crop)
-        else:
-            self._right_photo = None
-
-        self._draw_left(off_x, off_y)
-        self._draw_right(off_x, off_y, left_px)
-        self._draw_divider(divider_x, ch)
-        self._draw_labels(off_x, off_y, vw)
-
-        # После обновления Canvas старые PhotoImage можно отпустить
-        del prev_left, prev_right
-
-    def _draw_left(self, off_x, off_y):
-        c = self._canvas
-        if self._left_photo is None:
-            # Убираем скрытие _left_item (state="hidden").
-            # Из-за особенностей Tkinter скрытие нижнего слоя принудительно 
-            # заливает область фоном, затирая правое изображение поверх него.
-            # Так как правое изображение (с более высоким Z-index) при left_px == 0 
-            # и так растянуто на всю ширину экрана, оно само идеально перекроет эту область.
-            return
-        
-        if self._left_item is None:
-            self._left_item = c.create_image(off_x, off_y, anchor="nw",
-                                              image=self._left_photo)
-        else:
-            c.coords(self._left_item, off_x, off_y)
-            c.itemconfigure(self._left_item, image=self._left_photo, state="normal")
-
-    def _draw_right(self, off_x, off_y, left_px):
-        c = self._canvas
-        if self._right_photo is None:
-            if self._right_item is not None:
-                c.itemconfigure(self._right_item, state="hidden")
-            return
-        x = off_x + left_px
-        if self._right_item is None:
-            self._right_item = c.create_image(x, off_y, anchor="nw",
-                                               image=self._right_photo)
-        else:
-            c.coords(self._right_item, x, off_y)
-            c.itemconfigure(self._right_item, image=self._right_photo, state="normal")
-
-    def _draw_divider(self, split_x, ch):
-        c = self._canvas
-        if self._divider_item is None:
-            self._divider_item = c.create_line(split_x, 0, split_x, ch,
-                                                fill=self._accent, width=self._DIVIDER_W)
-        else:
-            c.coords(self._divider_item, split_x, 0, split_x, ch)
-
-    def _draw_labels(self, off_x, off_y, img_w):
-        c = self._canvas
-        pad = 12
-        # label_y — независимая переменная, не перезаписывает параметр off_y
-        label_y = self._canvas_h // 2 - pad - 8
-
-        # Текст берётся из переводов на каждый кадр — при смене языка
-        # надписи обновляются немедленно (fix: else-ветка тоже обновляет текст)
-        was_txt    = self.master.t("was").replace(":", "").upper()
-        became_txt = self.master.t("became").replace(":", "").upper()
-
-        bx0, by0 = off_x + pad - 4,  label_y + pad - 2
-        bx1, by1 = off_x + pad + 64, label_y + pad + 18
-        tx,  ty  = off_x + pad + 30, label_y + pad + 8
-        if self._lbl_before_bg is None:
-            self._lbl_before_bg   = c.create_rectangle(bx0, by0, bx1, by1,
-                                                        fill=self._bg2, outline="",
-                                                        stipple="gray50")
-            self._lbl_before_text = c.create_text(tx, ty, text=was_txt,
-                                                   font=("Segoe UI", 9, "bold"),
-                                                   fill=self._fg2, anchor="center")
-        else:
-            c.coords(self._lbl_before_bg,   bx0, by0, bx1, by1)
-            c.coords(self._lbl_before_text, tx, ty)
-            c.itemconfigure(self._lbl_before_text, text=was_txt)
-
-        ax0, ay0 = off_x + img_w - pad - 68, label_y + pad - 2
-        ax1, ay1 = off_x + img_w - pad + 4,  label_y + pad + 18
-        atx, aty = off_x + img_w - pad - 32, label_y + pad + 8
-        if self._lbl_after_bg is None:
-            self._lbl_after_bg   = c.create_rectangle(ax0, ay0, ax1, ay1,
-                                                       fill=self._bg2, outline="",
-                                                       stipple="gray50")
-            self._lbl_after_text = c.create_text(atx, aty, text=became_txt,
-                                                  font=("Segoe UI", 9, "bold"),
-                                                  fill=self._fg2, anchor="center")
-        else:
-            c.coords(self._lbl_after_bg,   ax0, ay0, ax1, ay1)
-            c.coords(self._lbl_after_text, atx, aty)
-            c.itemconfigure(self._lbl_after_text, text=became_txt)
-
 # ── ГЛАВНОЕ ОКНО ──────────────────────────────────────────────────────────────
 BaseClass = TkinterDnD.Tk if HAS_DND else tk.Tk
 
@@ -1637,6 +418,12 @@ class App(BaseClass):
         # очищенного пользователем) запуска не оживали в UI задним числом.
         self._batch_id        = 0
 
+        # Шаблон имени выходного файла: preset — один из "original"/"number"/
+        # "date"/"custom"; tokens — список токенов для пресета "custom", каждый
+        # {"type": "name"|"index"|"date"|"text", "value": "..." (только для text)}.
+        self._filename_preset = tk.StringVar(value="original")
+        self._filename_tokens = []
+
         self._loading = True  # блокирует _save_settings во время инициализации
         self._style_ttk()
         self._build()
@@ -1671,6 +458,16 @@ class App(BaseClass):
             if saved_out_dir and os.path.isdir(saved_out_dir):
                 self._out_dir.set(saved_out_dir)
                 self._dir_lbl.config(fg=FG)
+            # Восстанавливаем шаблон имени выходного файла
+            saved_fn_preset = self._settings.get("filename_preset", "original")
+            if saved_fn_preset in ("original", "number", "date", "custom"):
+                self._filename_preset.set(saved_fn_preset)
+            saved_fn_tokens = self._settings.get("filename_tokens", [])
+            if isinstance(saved_fn_tokens, list):
+                self._filename_tokens = [
+                    t for t in saved_fn_tokens
+                    if isinstance(t, dict) and t.get("type") in ("name", "index", "date", "text")
+                ]
 
         self._loading = False  # восстановление завершено, теперь сохранять можно
 
@@ -1766,6 +563,14 @@ class App(BaseClass):
         except AttributeError:
             pass
         try:
+            self._settings["filename_preset"] = self._filename_preset.get()
+        except AttributeError:
+            pass
+        try:
+            self._settings["filename_tokens"] = list(self._filename_tokens)
+        except AttributeError:
+            pass
+        try:
             out_dir_val = self._out_dir.get()
             # Сохраняем только реальный путь, не плейсхолдер
             if out_dir_val and os.path.isdir(out_dir_val):
@@ -1787,6 +592,8 @@ class App(BaseClass):
             to_write.pop("quality", None)
             to_write.pop("resize_mode_key", None)
             to_write.pop("out_dir", None)
+            to_write.pop("filename_preset", None)
+            to_write.pop("filename_tokens", None)
         save_settings(to_write)
 
     # ── стили ─────────────────────────────────────────────────────────────────
@@ -2019,7 +826,8 @@ class App(BaseClass):
 
         self._qual = tk.IntVar(value=85)
         self._qual.trace_add("write", lambda *a: self._save_settings())
-        self._qual_slider = FancySlider(_qual_wf, from_=10, to=100, variable=self._qual, width=190)
+        self._qual_slider = FancySlider(_qual_wf, from_=10, to=100, variable=self._qual, width=190,
+                                        bg2=BG2, accent=ACCENT, bg3=BG3, fg3=FG3)
         self._qual_slider.pack()
 
         # Целевой размер: поле ввода числа + единицы (KB/MB). Скрыто, пока
@@ -2042,7 +850,6 @@ class App(BaseClass):
             self._target_size_frame, textvariable=self._target_size_unit,
             values=["KB", "MB"], width=4, state="readonly", font=("Segoe UI", 9))
         self._cb_target_unit.pack(side="left", padx=(4, 0))
-
 
         # ИЗМЕНЕНИЕ РАЗРЕШЕНИЯ
         _res_blk, self._resize_lbl, _res_wf = _ctrl_block(ctrl_row, self.t("resize_lbl"))
@@ -2372,10 +1179,16 @@ class App(BaseClass):
         for c in ("status", "name", "res", "size"):
             self._tv_dst.heading(c, command=lambda col=c: _sort_dst(col))
 
-    def _btn(self, p, text, cmd, accent=False, big=False, dim=False):
-        """Создаёт стилизованную кнопку."""
+    def _btn(self, p, text, cmd, accent=False, big=False, dim=False, light=False):
+        """Создаёт стилизованную кнопку.
+
+        light=True — текст берётся из FG (яркий, как основные подписи в
+        интерфейсе) вместо приглушённого FG2. Используется там, где обычный
+        FG2 плохо читается на нестандартном фоне (например, на карточке
+        «Свой шаблон» в настройках).
+        """
         bn  = ACCENT if accent else CARD
-        fn  = "#fff"  if accent else (FG3 if dim else FG2)
+        fn  = "#fff"  if accent else (FG3 if dim else (FG if light else FG2))
         bh  = ACCENT2 if accent else BG3
         fnt = ("Segoe UI", 11, "bold") if big else ("Segoe UI", 10)
         px, py = (20, 9) if big else (11, 5)
@@ -2829,8 +1642,6 @@ class App(BaseClass):
         # Отложенное обновление скроллбара, чтобы Treeview успел отрисовать новые строки
         self.after(50, self._refresh_scrollbars)
 
-
-
     def _refresh_scrollbars(self):
         """Принудительно запрашивает обновление области прокрутки для показа скроллбара."""
         try:
@@ -2994,11 +1805,10 @@ class App(BaseClass):
             if dst_path is None:
                 messagebox.showinfo(APP_NAME, self.t("compare_no_files"))
                 return
-            # --- ДОБАВЛЕННАЯ СТРОКА ---
             # Синхронизируем индекс исходника с найденным рабочим результатом,
             # чтобы открылась правильная пара файлов
             idx_src = idx_dst
-            
+
         # Проверяем исходный файл
         if idx_src >= len(self._files):
             idx_src = 0
@@ -3118,6 +1928,12 @@ class App(BaseClass):
             unit = self._target_size_unit.get()
             target_bytes = target_size_num * (1024 * 1024 if unit == "MB" else 1024)
 
+        # Снимок шаблона имени файла — как и quality_mode/fmt выше, читаем из
+        # GUI-переменных один раз здесь; дальше и проверка конфликтов, и сама
+        # конвертация работают только с этим снимком, а не с self._filename_*.
+        filename_preset = self._filename_preset.get()
+        filename_tokens = [dict(t) for t in self._filename_tokens]
+
         out_dir = self._out_dir.get()
         if not out_dir or not os.path.isdir(out_dir):
             out_dir = filedialog.askdirectory(title=self.t("save_folder"))
@@ -3133,16 +1949,18 @@ class App(BaseClass):
             q_part = f"tgt:{target_bytes}"
         else:
             q_part = f"q:{self._qual.get()}"
+        fn_part = f"fn:{filename_preset}:{filename_tokens}"
         current_config_str = (f"fmt:{fmt_now}|{q_part}|dir:{out_dir}"
-                              f"|mode:{mode_key}|w:{target_w}|h:{target_h}")
+                              f"|mode:{mode_key}|w:{target_w}|h:{target_h}|{fn_part}")
 
         # Проверяем конфликты по «чистому» имени (без суффикса _1, _2 и т.д.)
         # _generate_unique_filename здесь использовать нельзя — она сама
         # уходит от конфликта и диалог никогда не показывается.
         existing       = []
         seen_basenames = set()
-        for p in self._files:
-            base_name  = os.path.splitext(os.path.basename(p))[0]
+        for i, p in enumerate(self._files, start=1):
+            orig_base  = os.path.splitext(os.path.basename(p))[0]
+            base_name  = render_filename_template(orig_base, i, filename_preset, filename_tokens)
             plain_name = f"{base_name}{ext_now}"
             out_path   = os.path.join(out_dir, plain_name)
             if plain_name.lower() in seen_basenames:
@@ -3197,7 +2015,8 @@ class App(BaseClass):
                   self._fmt.get(), self._qual.get(),
                   mode_key, target_w, target_h,
                   self._overwrite_confirmed, batch_id,
-                  quality_mode, target_bytes),
+                  quality_mode, target_bytes,
+                  filename_preset, filename_tokens),
             daemon=True).start()
 
     # ── очередь событий GUI ───────────────────────────────────────────────────
@@ -3272,290 +2091,10 @@ class App(BaseClass):
 
     # ── конвертация (фоновый поток) ───────────────────────────────────────────
 
-    def _convert_one(self, path, out_dir, fmt, out_name, quality,
-                     mode, target_w, target_h, current_config_str, resize_key=None,
-                     quality_mode="percent", target_bytes=None):
-        """Конвертирует один файл. Вызывается из пула потоков."""
-        out_path  = os.path.join(out_dir, out_name)
-        error_msg = None
-
-        # Проверка кэша (чтение _converted_cache защищено вызывающим кодом)
-        with self._data_lock:
-            cached_entry = self._converted_cache.get(path)
-
-        if cached_entry:
-            cached_config, cached_out_path, cached_size, cached_success, cached_res_str = cached_entry
-            # Используем кэш только при success=True и наличии файла на диске
-            if (cached_success and cached_config == current_config_str
-                    and os.path.exists(cached_out_path)):
-                return {
-                    "path": path, "out_name": out_name, "out_path": cached_out_path,
-                    "success": True, "cached": True,
-                    "f_size": cached_size, "res_str": cached_res_str,
-                    "size_str": format_size(cached_size),
-                }
-
-        success  = False
-        f_size   = 0
-        res_str  = "??x??"
-        size_str = "0 KB"
-        try:
-            # ── SVG: рендерим через resvg_py в PNG-байты, затем открываем как обычное изображение
-            is_svg = os.path.splitext(path)[1].lower() == ".svg"
-            if is_svg and SVG_AVAILABLE:
-                # Читаем байты и определяем кодировку: поддерживаем UTF-16 и UTF-8 BOM
-                with open(path, "rb") as _fb:
-                    _raw = _fb.read()
-                if _raw.startswith(b"\xff\xfe") or _raw.startswith(b"\xfe\xff"):
-                    svg_str = _raw.decode("utf-16")
-                elif _raw.startswith(b"\xef\xbb\xbf"):
-                    svg_str = _raw[3:].decode("utf-8", errors="replace")
-                else:
-                    svg_str = _raw.decode("utf-8", errors="replace")
-                # Определяем размер рендера из параметров задачи
-                if resize_key in ("smart_crop", "custom"):
-                    render_w, render_h = target_w, target_h
-                elif resize_key == "prop_width":
-                    render_w, render_h = target_w, 0
-                elif resize_key == "prop_height":
-                    render_w, render_h = 0, target_h
-                else:
-                    # Для режима "Без изменений" вытаскиваем оригинальные пиксели из SVG
-                    orig_w, orig_h = get_svg_resolution_pure(path)
-                    render_w, render_h = orig_w or 0, orig_h or 0
-                png_bytes = _resvg_py.svg_to_bytes(
-                    svg_string=svg_str,
-                    width=render_w if render_w else None,
-                    height=render_h if render_h else None,
-                )
-                img = Image.open(io.BytesIO(png_bytes)).copy()
-                # Принудительно переводим в RGBA чтобы не потерять прозрачность SVG
-                if img.mode not in ("RGBA", "RGB"):
-                    img = img.convert("RGBA")
-                orig_w, orig_h = img.size
-                # После рендера resize не нужен — resvg уже отрисовал нужный размер.
-                # Для smart_crop делаем кроп если соотношение не совпало.
-                if resize_key == "smart_crop" and (orig_w, orig_h) != (target_w, target_h):
-                    scale = max(target_w / orig_w, target_h / orig_h)
-                    inter_w = max(1, round(orig_w * scale))
-                    inter_h = max(1, round(orig_h * scale))
-                    img = img.resize((inter_w, inter_h), Image.Resampling.LANCZOS)
-                    left = (inter_w - target_w) // 2
-                    top  = (inter_h - target_h) // 2
-                    img  = img.crop((left, top, left + target_w, top + target_h))
-                # Для режима "Пользовательский" принудительно растягиваем/сплющиваем
-                # картинку до точных цифр, игнорируя сохранение пропорций.
-                elif resize_key == "custom" and (orig_w, orig_h) != (target_w, target_h):
-                    img = img.resize((target_w, target_h), Image.Resampling.LANCZOS)
-            else:
-                img = Image.open(path)
-                img.load()  # полностью читаем чтобы можно было закрыть файл
-
-            with img:
-                if not is_svg:
-                    orig_w, orig_h = img.size  # берём ДО ICC (только для растровых)
-
-                # CMYK не поддерживается ImageCms напрямую — конвертируем заранее
-                if img.mode == "CMYK":
-                    img = img.convert("RGB")
-
-                try:
-                    icc_profile = img.info.get("icc_profile")
-                    if icc_profile:
-                        src_profile = ImageCms.ImageCmsProfile(io.BytesIO(icc_profile))
-                        dst_profile = ImageCms.createProfile("sRGB")
-                        # Сохраняем альфа если он есть
-                        out_mode = "RGBA" if img.mode in ("RGBA", "PA", "LA") else "RGB"
-                        img = ImageCms.profileToProfile(
-                            img, src_profile, dst_profile, outputMode=out_mode
-                        )
-                except Exception:
-                    pass
-
-                # Для SVG resize пропускаем — изображение уже отрендерено в нужный размер
-                # Используем resize_key (языконезависимый) вместо rm[N]
-                if not is_svg:
-                    if resize_key == "prop_width":
-                        new_w = target_w
-                        new_h = max(1, round(orig_h * (target_w / orig_w)))
-                        img = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
-                    elif resize_key == "prop_height":
-                        new_h = target_h
-                        new_w = max(1, round(orig_w * (target_h / orig_h)))
-                        img = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
-                    elif resize_key == "smart_crop":
-                        scale = max(target_w / orig_w, target_h / orig_h)
-                        inter_w = max(1, round(orig_w * scale))
-                        inter_h = max(1, round(orig_h * scale))
-                        img = img.resize((inter_w, inter_h), Image.Resampling.LANCZOS)
-                        left = (inter_w - target_w) // 2
-                        top = (inter_h - target_h) // 2
-                        img = img.crop((left, top, left + target_w, top + target_h))
-                    elif resize_key == "custom":
-                        img = img.resize((target_w, target_h), Image.Resampling.LANCZOS)
-
-                if fmt == "JPEG" and img.mode in ("RGBA", "P", "PA", "LA"):
-                    # Сначала конвертируем в RGBA, затем берём маску —
-                    # в палитровом режиме "P" split()[3] не альфа-канал
-                    rgba   = img.convert("RGBA")
-                    bg_img = Image.new("RGB", rgba.size, (255, 255, 255))
-                    bg_img.paste(rgba, mask=rgba.split()[3])
-                    img = bg_img
-
-                kw = {"quality": quality} if fmt in ("JPEG", "WEBP", "HEIC", "AVIF") else {}
-
-                if fmt == "ICO":
-                    if img.mode not in ("RGBA", "RGB"):
-                        img = img.convert("RGBA")
-                    std_sizes = [16, 24, 32, 48, 64, 128, 256]
-                    if resize_key == "no_change":
-                        all_sizes = [s for s in sorted(set(std_sizes + [img.size[0]])) if s <= 256]
-                        kw["sizes"] = [(s, s) for s in all_sizes]
-                    else:
-                        max_side = min(max(img.size), 256)
-                        ico_sizes = [s for s in std_sizes if s < max_side]
-                        ico_sizes.append(max_side)
-                        kw["sizes"] = sorted([(s, s) for s in set(ico_sizes)])
-
-                # AVIF: гарантируем совместимый цветовой режим и передаём ICC-профиль
-                if fmt == "AVIF":
-                    if img.mode not in ("RGB", "RGBA"):
-                        # LA, P, PA → RGBA чтобы сохранить прозрачность если она есть
-                        if img.mode in ("LA", "PA"):
-                            img = img.convert("RGBA")
-                        elif img.mode == "P" and "transparency" in img.info:
-                            img = img.convert("RGBA")
-                        else:
-                            img = img.convert("RGB")
-                    # Встраиваем sRGB ICC-профиль — AVIF декодеры ожидают его явно
-                    srgb_profile = ImageCms.createProfile("sRGB")
-                    kw["icc_profile"] = ImageCms.ImageCmsProfile(srgb_profile).tobytes()
-
-                tmp_path = out_path + ".tmp"
-                save_fmt = "HEIF" if fmt == "HEIC" else fmt
-
-                # Режим "целевой размер файла": подбираем максимальное
-                # качество, укладывающееся в лимит, бинарным поиском.
-                # Если лимит физически недостижим даже при quality=10 —
-                # используем лучшее из достижимого (см. _find_quality_for_target_size).
-                if quality_mode == "size" and target_bytes and fmt in ("JPEG", "WEBP", "HEIC", "AVIF"):
-                    quality = self._find_quality_for_target_size(img, save_fmt, kw, target_bytes)
-                    kw["quality"] = quality
-
-                try:
-                    img.save(tmp_path, save_fmt, **kw)
-                    if os.path.exists(out_path):
-                        os.remove(out_path)
-                    os.replace(tmp_path, out_path)
-                except Exception:
-                    # Удаляем незавершённый временный файл при любой ошибке записи
-                    try:
-                        if os.path.exists(tmp_path):
-                            os.remove(tmp_path)
-                    except OSError:
-                        pass
-                    raise
-                # Для ICO показываем реальный максимальный размер внутри файла
-                if fmt == "ICO":
-                    try:
-                        with Image.open(out_path) as ico_check:
-                            max_s = max(ico_check.size)
-                            res_str = f"{max_s}x{max_s} (ICO)"
-                    except Exception:
-                        res_str = f"{img.size[0]}x{img.size[1]} (ICO)"
-                else:
-                    res_str = f"{img.size[0]}x{img.size[1]}"
-
-            success  = True
-            f_size   = os.path.getsize(out_path)
-            size_str = format_size(f_size)
-        except Exception as ex:
-            # Сохраняем текст ошибки отдельно, out_path остаётся валидным путём
-            error_msg = str(ex)
-
-        # Запись в кэш только при успехе — неудачи не кэшируем,
-        # чтобы следующий запуск пересчитал файл заново.
-        if success:
-            with self._data_lock:
-                # LRU-ограничение: не более 500 записей за сессию
-                if len(self._converted_cache) >= 500:
-                    self._converted_cache.pop(next(iter(self._converted_cache)))
-                self._converted_cache[path] = (
-                    current_config_str, out_path, f_size, True, res_str)
-
-        return {
-            "path":      path,
-            "out_name":  out_name,
-            "out_path":  out_path,       # всегда путь, никогда не строка ошибки
-            "error_msg": error_msg,      # ошибка хранится отдельно
-            "success":   success,
-            "cached":    False,
-            "f_size":    f_size,
-            "res_str":   res_str,
-            "size_str":  size_str,
-        }
-
-    def _find_quality_for_target_size(self, img, save_fmt, base_kw, target_bytes):
-        """Бинарным поиском подбирает максимальное качество (10-100), при
-        котором закодированный в память файл не превышает target_bytes.
-
-        base_kw — уже собранные параметры сохранения (icc_profile для AVIF
-        и т.д.), кроме "quality" — она подбирается здесь и переопределяется
-        на каждой итерации. Кодирование идёт в BytesIO, не на диск — реальная
-        запись на диск происходит один раз после подбора, в вызывающем коде.
-
-        Если даже quality=10 даёт файл больше target_bytes (например,
-        очень «шумное» изображение, которое физически не сжать сильнее без
-        уменьшения разрешения) — возвращает 10 как лучший достижимый
-        результат; итоговый файл в этом случае будет больше запрошенного
-        лимита, но конвертация не прерывается.
-        """
-        lo, hi = 10, 100
-        best_q = 10
-        while lo <= hi:
-            mid = (lo + hi) // 2
-            buf = io.BytesIO()
-            test_kw = dict(base_kw)
-            test_kw["quality"] = mid
-            try:
-                img.save(buf, save_fmt, **test_kw)
-            except Exception:
-                # Это качество не удалось закодировать — считаем его
-                # недостижимым и сужаем диапазон вниз.
-                hi = mid - 1
-                continue
-            if buf.tell() <= target_bytes:
-                best_q = mid
-                lo = mid + 1
-            else:
-                hi = mid - 1
-        return best_q
-
-    def _generate_unique_filename(self, out_dir, base_name, ext,
-                                   reserved_names=None, allow_overwrite=False):
-        """Генерирует уникальное имя файла, не конфликтующее ни с диском, ни с батчем.
-
-        allow_overwrite=True: файлы на диске не считаются конфликтом (пользователь
-        уже согласился на замену), суффикс _1/_2 добавляется только при коллизии
-        внутри текущего батча.
-        """
-        if reserved_names is None:
-            reserved_names = set()
-        counter = 0
-        while True:
-            filename   = f"{base_name}{ext}" if counter == 0 else f"{base_name}_{counter}{ext}"
-            lower_name = filename.lower()
-            on_disk    = os.path.exists(os.path.join(out_dir, filename))
-            # При allow_overwrite файл на диске не блокирует имя
-            disk_conflict = on_disk and not allow_overwrite
-            if lower_name not in reserved_names and not disk_conflict:
-                reserved_names.add(lower_name)
-                return filename
-            counter += 1
-
     def _convert_worker(self, files_snapshot, out_dir, fmt, quality, mode_key,
                         target_w, target_h, allow_overwrite=False, batch_id=0,
-                        quality_mode="percent", target_bytes=None):
+                        quality_mode="percent", target_bytes=None,
+                        filename_preset="original", filename_tokens=None):
         """Фоновый рабочий поток: конвертирует все файлы параллельно.
 
         batch_id штампуется на каждое сообщение в self._gui_queue — это
@@ -3567,28 +2106,34 @@ class App(BaseClass):
         ext        = ".jpg" if fmt == "JPEG" else f".{fmt.lower()}"
         resize_key = mode_key  # уже языконезависимый ключ, декодирование не нужно
         total      = len(files_snapshot)
+        filename_tokens = filename_tokens or []
 
         ok_cnt = err_cnt = 0
         done   = 0
 
-        # В режиме "целевой размер" итоговое качество разное для каждого
-        # файла, поэтому в ключ кэша попадает именно целевой размер, а не
-        # фиксированное значение quality (иначе кэш считал бы конфигурацию
-        # неизменной при смене только целевого размера файла).
+        # Ключ кэша учитывает target_bytes (а не quality) в режиме "целевой
+        # размер" — иначе кэш не заметит смену лимита. Шаблон имени файла
+        # тоже входит в ключ: сам результат от него не зависит, но смена
+        # шаблона должна приводить к перезаписи под новым именем, а не к
+        # переиспользованию старого закэшированного out_path.
         if quality_mode == "size" and target_bytes:
             q_part = f"tgt:{target_bytes}"
         else:
             q_part = f"q:{quality}"
+        fn_part = f"fn:{filename_preset}:{filename_tokens}"
         current_config_str = (f"fmt:{fmt}|{q_part}|dir:{out_dir}"
-                              f"|mode:{mode_key}|w:{target_w}|h:{target_h}")
+                              f"|mode:{mode_key}|w:{target_w}|h:{target_h}|{fn_part}")
         workers = min(os.cpu_count() or 4, 8)
 
-        # Предварительное выделение уникальных имён на основе снимка списка
+        # Предварительное выделение уникальных имён на основе снимка списка.
+        # Индекс (i) считается с 1 в порядке текущего списка — им пользуется
+        # токен "Номер" в пользовательском шаблоне и пресет "Имя + номер".
         allocated_names = {}
         reserved_names  = set()
-        for path in files_snapshot:
-            base_name = os.path.splitext(os.path.basename(path))[0]
-            allocated_names[path] = self._generate_unique_filename(
+        for i, path in enumerate(files_snapshot, start=1):
+            orig_base = os.path.splitext(os.path.basename(path))[0]
+            base_name = render_filename_template(orig_base, i, filename_preset, filename_tokens)
+            allocated_names[path] = generate_unique_filename(
                 out_dir, base_name, ext, reserved_names,
                 allow_overwrite=allow_overwrite)
 
@@ -3597,9 +2142,10 @@ class App(BaseClass):
         with ThreadPoolExecutor(max_workers=workers) as pool:
             for path in files_snapshot:
                 out_name = allocated_names[path]
-                f = pool.submit(self._convert_one, path, out_dir, fmt, out_name, quality,
+                f = pool.submit(convert_one, path, out_dir, fmt, out_name, quality,
                                 mode_key, target_w, target_h, current_config_str, resize_key,
-                                quality_mode, target_bytes)
+                                quality_mode, target_bytes,
+                                cache=self._converted_cache, lock=self._data_lock)
                 futures[f] = path
 
             for future in as_completed(futures):
@@ -3654,192 +2200,24 @@ class App(BaseClass):
         })
 
     # ── окна настроек и доната ────────────────────────────────────────────────
+    # Сами окна реализованы в settings.py; здесь — обёртки, собирающие
+    # палитру текущей темы в словарь и передающие ссылку на себя (app).
 
     def _open_settings(self):
         """Открывает модальное окно настроек."""
-        win = tk.Toplevel(self)
-        win.title(self.t("settings_title"))
-        win.resizable(False, False)
-        win.configure(bg=BG)
-        win.transient(self)
-        win.grab_set()
-
-        try:
-            win.iconbitmap(resource_path("icon.ico"))
-        except Exception:
-            pass
-
-        ww, wh = 300, 235
-        win.update_idletasks()
-        x = self.winfo_x() + (self.winfo_width() - ww) // 2
-        y = self.winfo_y() + (self.winfo_height() - wh) // 2
-        win.geometry(f"{ww}x{wh}+{x}+{y}")
-
-        settings_title_lbl = tk.Label(win, text=self.t("settings_title"),
-                                      font=("Segoe UI", 12, "bold"), bg=BG, fg=FG)
-        settings_title_lbl.pack(pady=(18, 12))
-
-        row = tk.Frame(win, bg=BG)
-        row.pack(padx=24, fill="x")
-
-        lang_lbl = tk.Label(row, text=self.t("settings_lang"),
-                            font=("Segoe UI", 10), bg=BG, fg=FG2)
-        lang_lbl.pack(side="left")
-
-        lang_names = list(LANGUAGES.values())
-        cb = ttk.Combobox(row, values=lang_names, width=14,
-                          state="readonly", font=("Segoe UI", 10))
-        cb.set(LANGUAGES[self._lang])
-        cb.pack(side="right")
-
-        # Выбор темы
-        theme_row = tk.Frame(win, bg=BG)
-        theme_row.pack(padx=24, fill="x", pady=(10, 0))
-
-        theme_lbl = tk.Label(theme_row, text=self.t("settings_theme"),
-                             font=("Segoe UI", 10), bg=BG, fg=FG2)
-        theme_lbl.pack(side="left")
-
-        theme_names = [self.t("theme_dark"), self.t("theme_light")]
-        theme_keys  = ["dark", "light"]
-        theme_cb = ttk.Combobox(theme_row, values=theme_names, width=14,
-                                state="readonly", font=("Segoe UI", 10))
-        theme_cb.set(self.t("theme_dark") if self._theme == "dark" else self.t("theme_light"))
-        theme_cb.pack(side="right")
-
-        # Создаем контейнер под уведомление здесь)
-        note_container = tk.Frame(win, bg=BG, height=35)
-        note_container.pack_propagate(False)
-
-        restart_note = tk.Label(note_container, text="",
-                                font=("Segoe UI", 8), bg=BG, fg=ACCENT2,
-                                wraplength=260, justify="center")
-        restart_note.pack(expand=True, fill="both")
-
-        def on_theme_select(e):
-            selected_name = theme_cb.get()
-            idx = theme_names.index(selected_name)
-            new_theme = theme_keys[idx]
-            if new_theme != self._theme:
-                self._theme = new_theme
-                self._save_settings()
-                restart_note.config(text=self.t("theme_restart_note"))
-            else:
-                restart_note.config(text="")
-
-        theme_cb.bind("<<ComboboxSelected>>", on_theme_select)
-
-        # Чекбокс "Запоминать настройки"
-        remember_row = tk.Frame(win, bg=BG, cursor="hand2")
-        remember_row.pack(padx=24, fill="x", pady=(12, 0))
-
-        remember_lbl = tk.Label(remember_row, text=self.t("settings_remember"),
-                                font=("Segoe UI", 10), bg=BG, fg=FG2, cursor="hand2")
-        remember_lbl.pack(side="left")
-
-        BOX = 16
-        chk_canvas = tk.Canvas(remember_row, width=BOX, height=BOX,
-                               bg=BG, bd=0, highlightthickness=0, cursor="hand2")
-        chk_canvas.pack(side="left", padx=(8, 0))
-
-        def _draw_checkbox():
-            chk_canvas.delete("all")
-            checked = self._remember_settings.get()
-            chk_canvas.create_rectangle(1, 1, BOX-1, BOX-1,
-                                        outline=ACCENT if checked else FG3,
-                                        fill=ACCENT if checked else BG, width=1)
-            if checked:
-                chk_canvas.create_line(3, 8, 6, 12, fill="#fff", width=2)
-                chk_canvas.create_line(6, 12, 13, 4, fill="#fff", width=2)
-
-        def _toggle_checkbox(e=None):
-            self._remember_settings.set(not self._remember_settings.get())
-            _draw_checkbox()
-            self._save_settings()
-
-        _draw_checkbox()
-
-        for w in (remember_row, remember_lbl, chk_canvas):
-            w.bind("<Button-1>", _toggle_checkbox)
-
-        # Уведомление перезапуска после смены темы
-        note_container.pack(fill="x", pady=(6, 0))
-
-        def on_lang_select(e):
-            selected_name = cb.get()
-            for code, name in LANGUAGES.items():
-                if name == selected_name:
-                    self._lang = code
-                    self._save_settings()
-                    self._update_ui_strings()
-                    win.title(self.t("settings_title"))
-                    settings_title_lbl.config(text=self.t("settings_title"))
-                    lang_lbl.config(text=self.t("settings_lang"))
-                    remember_lbl.config(text=self.t("settings_remember"))
-                    cl.config(text=self.t("settings_close"))
-                    theme_lbl.config(text=self.t("settings_theme"))
-                    theme_names_new = [self.t("theme_dark"), self.t("theme_light")]
-                    theme_cb.config(values=theme_names_new)
-                    theme_cb.set(theme_names_new[0] if self._theme == "dark" else theme_names_new[1])
-                    theme_names[:] = theme_names_new
-                    
-                    if restart_note.cget("text") != "":
-                        restart_note.config(text=self.t("theme_restart_note"))
-                    break
-
-        cb.bind("<<ComboboxSelected>>", on_lang_select)
-
-        # Кнопка закрытия
-        cl = tk.Label(win, text=self.t("settings_close"),
-                      font=("Segoe UI", 10), bg=BG, fg=FG2, cursor="hand2")
-        cl.pack(pady=(10, 15))
-        cl.bind("<Button-1>", lambda e: win.destroy())
-        cl.bind("<Enter>",    lambda e: cl.config(fg=FG))
-        cl.bind("<Leave>",    lambda e: cl.config(fg=FG2))
+        colors = {"BG": BG, "BG2": BG2, "BG3": BG3, "CARD": CARD,
+                  "FG": FG, "FG2": FG2, "FG3": FG3,
+                  "ACCENT": ACCENT, "ACCENT2": ACCENT2, "BORDER": BORDER,
+                  "HEART_RED": HEART_RED, "CARD_TINT": CARD_TINT}
+        open_settings_window(self, colors)
 
     def _donate(self):
-        win = tk.Toplevel(self)
-        win.title(self.t("donate_title"))
-        # Уменьшаем высоту окна, так как полей с кошельками больше нет
-        win.geometry("500x300")
-        win.configure(bg=BG)
-        win.transient(self)
-        win.grab_set()
-
-        win.update_idletasks()
-        x = self.winfo_x() + (self.winfo_width() - 500) // 2
-        y = self.winfo_y() + (self.winfo_height() - 300) // 2
-        win.geometry(f"+{x}+{y}")
-        
-        tk.Label(win, text="♥", font=("Segoe UI", 28), bg=BG, fg=HEART_RED).pack(pady=(16, 2))
-        tk.Label(win, text=self.t("donate_sub"),
-                 font=("Segoe UI", 12, "bold"), bg=BG, fg=FG).pack()
-
-        tk.Label(win, text=self.t("donate_desc"), font=("Segoe UI", 10),
-                 bg=BG, fg=FG, justify="center").pack(pady=15)
-
-        def _open_wallets():
-            webbrowser.open("https://github.com/cyber-anderson/Formatix#%EF%B8%8F-support-the-project")
-            win.destroy()  # Окно закроется после открытия браузера (можно убрать, если не нужно)
-
-        # Новая кнопка в стиле кнопки "Конвертировать" (как в _btn)
-        btn = tk.Button(win, text=self.t("donate_btn"),
-                        font=("Segoe UI", 11, "bold"),
-                        bg=ACCENT, fg="#fff", activebackground=ACCENT2,
-                        activeforeground="#fff", relief="flat", padx=20, pady=9,
-                        command=_open_wallets, cursor="hand2")
-        
-        # Эффекты наведения для кнопки как в остальном интерфейсе
-        btn.bind("<Enter>", lambda e, w=btn: w.config(bg=ACCENT2, fg="#fff"))
-        btn.bind("<Leave>", lambda e, w=btn: w.config(bg=ACCENT, fg="#fff"))
-        btn.pack(pady=10)
-
-        cl = tk.Label(win, text=self.t("donate_close"),
-                      font=("Segoe UI", 10), bg=BG, fg=FG2, cursor="hand2")
-        cl.pack(pady=(15, 10))
-        cl.bind("<Button-1>", lambda e: win.destroy())
-        cl.bind("<Enter>",    lambda e: cl.config(fg=FG))
-        cl.bind("<Leave>",    lambda e: cl.config(fg=FG2))
+        """Открывает окно с призывом поддержать проект."""
+        colors = {"BG": BG, "BG2": BG2, "BG3": BG3, "CARD": CARD,
+                  "FG": FG, "FG2": FG2, "FG3": FG3,
+                  "ACCENT": ACCENT, "ACCENT2": ACCENT2, "BORDER": BORDER,
+                  "HEART_RED": HEART_RED}
+        open_donate_window(self, colors)
 
 if __name__ == "__main__":
     App().mainloop()
