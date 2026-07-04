@@ -30,7 +30,7 @@ import ctypes
 import subprocess
 from PIL import Image, ImageTk
 
-# CompareWindow и FancySlider — в compare.py
+# Compare и FancySlider — в compare.py
 from compare import Compare, FancySlider
 
 # Локализация (языки, строки переводов, автоопределение языка системы)
