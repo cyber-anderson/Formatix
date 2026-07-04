@@ -49,13 +49,13 @@ except Exception:
 
 AVIF_AVAILABLE = False
 try:
-    # Pillow >= 10 поддерживает AVIF нативно если установлен libavif.
-    # pillow-avif-plugin расширяет поддержку для старых версий Pillow.
+    # Pillow >= 10 поддерживает AVIF нативно (libavif); pillow-avif-plugin
+    # расширяет поддержку для более старых версий Pillow.
     try:
-        import pillow_avif  # noqa: F401 - регистрирует кодек автоматически при импорте
+        import pillow_avif  # noqa: F401 - регистрирует кодек при импорте
     except ImportError:
         pass
-    # Проверяем реальную возможность сохранения: создаём 1x1 AVIF в памяти
+    # Реальная проверка возможности сохранения — пробуем закодировать 1x1 AVIF
     _test = Image.new("RGB", (1, 1))
     _buf  = io.BytesIO()
     _test.save(_buf, "AVIF", quality=50)
@@ -95,27 +95,24 @@ def get_file_size_str(path):
 def get_svg_resolution_pure(path):
     """Быстро и безопасно находит размеры SVG через регулярные выражения."""
     try:
-        # Читаем только самое начало файла (этого хватит для тега <svg>)
-        with open(path, "rb") as f:
+        with open(path, "rb") as f:   # начала файла достаточно для тега <svg>
             raw_bytes = f.read(8192)
 
         text = raw_bytes.decode("utf-8", errors="ignore").strip()
 
-        # 1. Ищем тег <svg ...> целиком
         svg_tag_match = re.search(r"<svg([^>]+)>", text, re.IGNORECASE)
         if not svg_tag_match:
             return None, None
 
         svg_body = svg_tag_match.group(1)
 
-        # 2. Пробуем вытащить явные width и height
+        # Явные width/height, иначе viewBox="x y width height"
         w_match = re.search(r'width=["\']\s*([\d.]+)(?:px|pt|em|cm|mm)?\s*["\']', svg_body)
         h_match = re.search(r'height=["\']\s*([\d.]+)(?:px|pt|em|cm|mm)?\s*["\']', svg_body)
 
         if w_match and h_match:
             return int(float(w_match.group(1))), int(float(h_match.group(1)))
 
-        # 3. Если их нет, ищем viewBox="x y width height"
         vb_match = re.search(r'viewBox=["\']\s*(-?[\d.]+)\s+(-?[\d.]+)\s+([\d.]+)\s+([\d.]+)\s*["\']', svg_body)
         if vb_match:
             return int(float(vb_match.group(3))), int(float(vb_match.group(4)))
@@ -127,16 +124,11 @@ def get_svg_resolution_pure(path):
 
 
 def load_pil_for_display(path):
-    """Загружает изображение для отображения в окне сравнения.
+    """Загружает изображение для отображения (окно сравнения и другие места).
 
-    Единая точка входа для CompareWindow._load_pil.  Поддерживает:
-    - SVG через resvg_py (рендер до 2048 px по длинной стороне)
-    - ICC-коррекцию растровых форматов (любой профиль -> sRGB)
-    - CMYK -> RGB до ICC (ImageCms не принимает CMYK напрямую)
-    - UTF-16 BOM, UTF-8 BOM и plain-UTF-8 для SVG
-
-    Вынесена на уровень модуля, чтобы её мог переиспользовать любой
-    компонент приложения без дублирования кода.
+    Поддерживает: SVG через resvg_py (рендер до 2048px по длинной стороне),
+    ICC-коррекцию растровых форматов в sRGB, CMYK -> RGB до ICC (ImageCms
+    не принимает CMYK напрямую), UTF-16/UTF-8 BOM и plain-UTF-8 для SVG.
     """
     ext = os.path.splitext(path)[1].lower()
     fallback = Image.new("RGB", (4, 4), (30, 30, 46))
@@ -155,8 +147,8 @@ def load_pil_for_display(path):
 
             native_w, native_h = get_svg_resolution_pure(path)
 
-            # Ограничиваем размер рендера: большего для предпросмотра не нужно,
-            # а _recompute_fit потом сам масштабирует под холст через LANCZOS.
+            # Больше 2048px для предпросмотра не нужно — дальше сам холст
+            # масштабирует под себя через LANCZOS
             MAX_SVG = 2048
             if native_w and native_h:
                 long_side = max(native_w, native_h)
@@ -202,7 +194,6 @@ def load_pil_for_display(path):
         except Exception:
             pass  # если ICC не распознан - показываем как есть
 
-        # Нормализуем итоговый режим
         if img.mode not in ("RGB", "RGBA"):
             img = img.convert("RGBA" if "A" in img.mode else "RGB")
 
@@ -296,7 +287,6 @@ def generate_unique_filename(out_dir, base_name, ext,
         filename   = f"{base_name}{ext}" if counter == 0 else f"{base_name}_{counter}{ext}"
         lower_name = filename.lower()
         on_disk    = os.path.exists(os.path.join(out_dir, filename))
-        # При allow_overwrite файл на диске не блокирует имя
         disk_conflict = on_disk and not allow_overwrite
         if lower_name not in reserved_names and not disk_conflict:
             reserved_names.add(lower_name)
@@ -304,7 +294,7 @@ def generate_unique_filename(out_dir, base_name, ext,
         counter += 1
 
 
-# ── собственно конвертация ──────────────────────────────────────────────────────
+# ── конвертация ──────────────────────────────────────────────────────────────
 
 def find_quality_for_target_size(img, save_fmt, base_kw, target_bytes):
     """Бинарным поиском подбирает максимальное качество (10-100), при
@@ -358,7 +348,6 @@ def convert_one(path, out_dir, fmt, out_name, quality,
     error_msg = None
     lock_ctx  = lock if lock is not None else contextlib.nullcontext()
 
-    # Проверка кэша
     cached_entry = None
     if cache is not None:
         with lock_ctx:
@@ -366,7 +355,7 @@ def convert_one(path, out_dir, fmt, out_name, quality,
 
     if cached_entry:
         cached_config, cached_out_path, cached_size, cached_success, cached_res_str = cached_entry
-        # Используем кэш только при success=True и наличии файла на диске
+        # Конфиг не изменился, и файл результата ещё физически на диске
         if (cached_success and cached_config == current_config_str
                 and os.path.exists(cached_out_path)):
             return {
@@ -453,8 +442,7 @@ def convert_one(path, out_dir, fmt, out_name, quality,
             except Exception:
                 pass
 
-            # Для SVG resize пропускаем - изображение уже отрендерено в нужный размер
-            # Используем resize_key (языконезависимый) вместо rm[N]
+            # SVG уже отрендерен в нужный размер — resize не нужен
             if not is_svg:
                 if resize_key == "prop_width":
                     new_w = target_w
@@ -515,10 +503,7 @@ def convert_one(path, out_dir, fmt, out_name, quality,
             tmp_path = out_path + ".tmp"
             save_fmt = "HEIF" if fmt == "HEIC" else fmt
 
-            # Режим "целевой размер файла": подбираем максимальное
-            # качество, укладывающееся в лимит, бинарным поиском.
-            # Если лимит физически недостижим даже при quality=10 -
-            # используем лучшее из достижимого (см. find_quality_for_target_size).
+            # Режим "целевой размер файла" — см. find_quality_for_target_size
             if quality_mode == "size" and target_bytes and fmt in ("JPEG", "WEBP", "HEIC", "AVIF"):
                 quality = find_quality_for_target_size(img, save_fmt, kw, target_bytes)
                 kw["quality"] = quality
@@ -558,7 +543,8 @@ def convert_one(path, out_dir, fmt, out_name, quality,
     # чтобы следующий запуск пересчитал файл заново.
     if success and cache is not None:
         with lock_ctx:
-            # LRU-ограничение: не более 500 записей за сессию
+            # Ограничение 500 записей, вытеснение по порядку вставки (FIFO,
+            # не LRU — при попадании в кэш запись не переставляется в конец)
             if len(cache) >= 500:
                 cache.pop(next(iter(cache)))
             cache[path] = (current_config_str, out_path, f_size, True, res_str)
