@@ -58,6 +58,7 @@ Formatix Image Converter is a powerful desktop application designed to batch con
 * **Color Profile Management** — ICC-based color space conversion via Pillow ImageCms for high color accuracy
 * **Multi-size ICO Generation** — automatically creates Windows icon packs
 * **Adjustable Quality Settings** — fine-tune compression levels for JPEG, WEBP, AVIF, and HEIC, or set a target output file size (KB/MB) and let automatically find the best quality to fit within it
+* **Custom File Renaming** — choose from built-in presets or use the custom template builder in Settings
 * **Drag & Drop** — instantly add folders or individual files
 * **Smart Conversion Cache** — automatically skips files already converted with identical settings to save time
 * **Safe Processing** — features atomic file writes (prevents partially written output files) and overwrite protection
