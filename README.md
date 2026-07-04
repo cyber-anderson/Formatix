@@ -95,7 +95,7 @@ pip install Pillow pillow-heif tkinterdnd2 resvg-py
 | `formatix.py` | Main app / entry point |
 | `localization.py` | UI language strings & system language detection |
 | `converter.py` | Image conversion & processing logic |
-| `compare_window.py` | Before/after comparison window |
+| `compare.py` | Before/after comparison window |
 | `settings.py` | Settings and Donate dialog windows |
 
 2. Run the application:
