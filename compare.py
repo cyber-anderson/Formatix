@@ -17,12 +17,10 @@
 
 """Окно сравнения изображений и вспомогательный виджет-слайдер.
 
-Вынесено в отдельный модуль из основного файла приложения, так как это
-самый большой по объёму код кусок интерфейса. Модуль полностью
-самодостаточен: не импортирует ничего из главного файла приложения —
-все цвета темы передаются явными аргументами при создании виджетов.
-Это позволяет подключать его как обычный локальный модуль (PyInstaller
-подхватит его автоматически по операторам import и соберёт в один exe).
+Вынесено в отдельный модуль как самый объёмный кусок UI. Модуль
+самодостаточен — не импортирует ничего из главного файла, цвета темы
+передаются аргументами при создании виджетов (PyInstaller подхватит
+модуль автоматически по import и соберёт в один exe).
 """
 
 import tkinter as tk
@@ -80,10 +78,10 @@ class FancySlider(tk.Frame):
             self._var.set(rounded)
 
     def _on_var_update(self, *args):
-        # Обновляем поле ввода только если пользователь прямо сейчас не вводит в него текст
+        # Не перезаписываем поле, пока пользователь сам печатает в нём значение
         if self.focus_get() != self.entry:
             self.entry_var.set(str(self._var.get()))
-        # Если фокус в поле, обновляем ползунок (чтобы клавиатура работала)
+
     def _on_entry_write(self, *args):
         if self.focus_get() != self.entry:
             return
@@ -93,15 +91,12 @@ class FancySlider(tk.Frame):
                 self._var.set(self.from_)
             return
         val = int(val_str)
-        # Ограничиваем диапазон и корректируем поле если вышло за границы
         if val > self.to:
-            # Откладываем обновление entry_var через after чтобы избежать
-            # рекурсии внутри trace_add("write")
+            # after(0, ...) — иначе рекурсия внутри trace_add("write")
             self._var.set(self.to)
             self.entry.after(0, lambda: self.entry_var.set(str(self.to)))
             return
         if val < self.from_ and len(val_str) >= len(str(self.from_)):
-            # Корректируем только если введено достаточно цифр (не в процессе набора)
             self._var.set(self.from_)
             self.entry.after(0, lambda: self.entry_var.set(str(self.from_)))
             return
@@ -123,26 +118,19 @@ class FancySlider(tk.Frame):
 
 # ── ОКНО СРАВНЕНИЯ ────────────────────────────────────────────────────────────
 
-# ── ОКНО СРАВНЕНИЯ ────────────────────────────────────────────────────────────
-
 class Compare(tk.Toplevel):
     """Полноэкранное окно сравнения исходного и результирующего изображений.
 
-    Реализует слайдер-разделитель (split-view): пользователь тянет линию
-    влево/вправо и видит левую часть (оригинал) и правую (результат).
+    Слайдер-разделитель (split-view): пользователь тянет линию и видит
+    оригинал слева, результат справа. Поддерживает зум (100–400%) и
+    панорамирование.
 
-    Также поддерживает увеличение (ползунок зума 100–400%) и панорамирование.
-
-    Производительность: дорогой ресемплинг (LANCZOS) больших исходных
-    изображений выполняется только при открытии окна, при изменении его
-    размера и при изменении зума — результат кэшируется в self._src_fit /
-    self._dst_fit. При перетаскивании разделителя или панорамировании
-    выполняется только дешёвая операция обрезки (crop) уже готовых
-    изображений, а объекты на холсте не удаляются и пересоздаются, а лишь
-    двигаются/обновляются (coords / itemconfigure). Кроме того, частые
-    события <B1-Motion> объединяются через after_idle в один кадр
-    перерисовки, чтобы очередь событий не накапливалась и интерфейс не
-    "отставал" от курсора.
+    Производительность: LANCZOS-ресемплинг выполняется только при открытии
+    окна, ресайзе и смене зума — кэшируется в _src_fit/_dst_fit. Перетаскивание
+    разделителя и панорамирование — это только дешёвая обрезка (crop) уже
+    готовых изображений; объекты на холсте не пересоздаются, а двигаются
+    (coords/itemconfigure). Частые <B1-Motion> схлопываются через after_idle
+    в одну перерисовку за кадр.
     """
 
     _DIVIDER_W = 3   # ширина линии разделителя в пикселях
@@ -157,15 +145,14 @@ class Compare(tk.Toplevel):
         self.title(title)
         self.configure(bg=bg)
         
-        # Разворачиваем окно (максимизируем), оставляя панель задач видимой
+        # Разворачиваем окно, оставляя панель задач видимой
         try:
-            self.state("zoomed")  # Стандартный способ для Windows
+            self.state("zoomed")           # Windows
         except tk.TclError:
-            self.attributes("-zoomed", True)  # Резервный вариант для Linux
+            self.attributes("-zoomed", True)  # Linux
 
-        # Оставляем только закрытие окна по кнопке Escape
+        # Единственный способ закрыть окно — Escape (кнопки закрытия нет)
         self.bind("<Escape>", lambda e: self.destroy())
-        # Переключение между файлами для сравнения — стрелками с клавиатуры
         self.bind("<Left>",  lambda e: self._navigate(-1))
         self.bind("<Right>", lambda e: self._navigate(1))
 
@@ -175,44 +162,36 @@ class Compare(tk.Toplevel):
         self._src_path = src_path
         self._dst_path = dst_path
 
-        # Индекс текущей пары "файл / результат" в общих списках главного окна
-        # (self.master._files / self.master._results) — используется для
-        # переключения на предыдущий/следующий файл кнопками ◀ / ▶.
+        # Индекс текущей пары в master._files/_results — для навигации ◀ / ▶
         self._pair_index = index
 
-        # Имена файлов для подписей
         self._src_name = os.path.basename(src_path)
         self._dst_name = os.path.basename(dst_path)
 
-        # Загружаем изображения
         self._src_pil = self._load_pil(src_path)
         self._dst_pil = self._load_pil(dst_path)
 
-        # Позиция разделителя (0.0 – 1.0 от ширины холста)
-        self._split = 0.5
+        self._split = 0.5   # позиция разделителя, доля от ширины холста (0.0–1.0)
         self._dragging_divider = False
         self._panning_lmb = False
 
-        # Кэш изображений, уже подогнанных под текущий размер холста и зум.
-        # Пересчитывается только в _recompute_fit() — НЕ на каждый кадр.
-        # При зуме > 100% self._img_w/_img_h могут превышать размер холста —
-        # видимая часть (viewport) вычисляется в _redraw() на основе текущего
-        # панорамирования (self._pan_x/_pan_y).
+        # Кэш изображений, подогнанных под текущий холст/зум — пересчитывается
+        # только в _recompute_fit(), не на каждый кадр. При зуме > 100%
+        # _img_w/_img_h могут превышать холст; видимая часть (viewport)
+        # вычисляется в _redraw() из текущего панорамирования (_pan_x/_pan_y).
         self._src_fit = None
         self._dst_fit = None
         self._img_w = 0
         self._img_h = 0
         self._canvas_w = 0
         self._canvas_h = 0
-        # Кэш viewport-параметров последнего _redraw — нужен для корректного
-        # хит-теста и зажима разделителя в границы картинки (_on_mouse_move,
-        # _on_press, _update_split_from_x).
-        self._off_x = 0   # отступ слева до начала картинки (letterbox)
+        # Актуальны с последнего _redraw — нужны для хит-теста и зажима
+        # разделителя в границы картинки (_on_mouse_move, _on_press, _update_split_from_x)
+        self._off_x = 0   # отступ слева до картинки (letterbox)
         self._vw    = 0   # ширина видимой части картинки на холсте
 
-        # Зум и панорамирование
-        self._zoom = 1.0          # 1.0 = "по размеру окна", максимум — _ZOOM_MAX_PCT/100
-        self._zoom_var = tk.IntVar(value=100) # Переменная для FancySlider
+        self._zoom = 1.0   # 1.0 = "по размеру окна", максимум — _ZOOM_MAX_PCT/100
+        self._zoom_var = tk.IntVar(value=100)
         self._zoom_var.trace_add("write", lambda *a: self._on_zoom_var_change())
 
         self._pan_x = 0.0
@@ -221,7 +200,7 @@ class Compare(tk.Toplevel):
         self._pan_last_y = 0
         self._zoom_job = None
 
-        # id объектов на холсте — создаются один раз, далее только двигаются
+        # Объекты на холсте создаются один раз, дальше только двигаются/обновляются
         self._left_item = None
         self._right_item = None
         self._divider_item = None
@@ -232,11 +211,9 @@ class Compare(tk.Toplevel):
         self._lbl_after_bg = None
         self._lbl_after_text = None
 
-        # Ссылки на PhotoImage, чтобы избежать сборки мусора
-        self._left_photo = None
+        self._left_photo = None   # ссылки на PhotoImage — иначе их соберёт GC
         self._right_photo = None
 
-        # Отложенный пересчёт при ресайзе + флаг "кадр уже запланирован"
         self._resize_job = None
         self._redraw_pending = False
 
@@ -246,17 +223,13 @@ class Compare(tk.Toplevel):
     # ── загрузка ──────────────────────────────────────────────────────────────
 
     def _load_pil(self, path):
-        """Делегирует загрузку в модульную функцию load_pil_for_display.
-
-        Вся логика (SVG, ICC, CMYK) живёт в одном месте и переиспользуется
-        другими компонентами без дублирования кода.
-        """
+        """Загрузка делегирована converter.load_pil_for_display — вся логика
+        (SVG, ICC, CMYK) в одном месте, без дублирования между модулями."""
         return load_pil_for_display(path)
 
     # ── построение UI ─────────────────────────────────────────────────────────
 
     def _build_ui(self):
-        # Нижняя панель с заголовком
         top = tk.Frame(self, bg=self._bg2, pady=6)
         tk.Frame(self, bg=self._border, height=1).pack(fill="x", side="bottom")
         top.pack(fill="x", side="bottom")
@@ -266,8 +239,7 @@ class Compare(tk.Toplevel):
                  bg=self._bg2, fg=self._fg)
         self._title_lbl.pack(side="left", padx=16)
 
-        # Кнопки переключения на предыдущий / следующий файл сравнения —
-        # по центру верхней панели.
+        # Кнопки навигации ◀ / ▶ — по центру верхней панели
         nav_frame = tk.Frame(top, bg=self._bg2)
         nav_frame.place(relx=0.5, rely=0.5, anchor="center")
 
@@ -291,7 +263,6 @@ class Compare(tk.Toplevel):
 
         self._update_nav_buttons()
 
-        # Ползунок зума (100% – 400%)
         zoom_frame = tk.Frame(top, bg=self._bg2)
         zoom_frame.pack(side="right", padx=(0, 18))
 
@@ -309,20 +280,17 @@ class Compare(tk.Toplevel):
                                   bg=self._bg2, fg=self._fg2, width=4, anchor="w")
         self._zoom_lbl.pack(side="left", padx=(6, 0))
 
-
-        # Основной холст
         self._canvas = tk.Canvas(self, bg=self._bg, highlightthickness=0,
                                  cursor="hand2")
         self._canvas.pack(fill="both", expand=True)
 
         self._canvas.bind("<Configure>",       self._on_resize)
-        self._canvas.bind("<Motion>",          self._on_mouse_move) # Отслеживание движения мыши
+        self._canvas.bind("<Motion>",          self._on_mouse_move)
         self._canvas.bind("<ButtonPress-1>",   self._on_press)
         self._canvas.bind("<B1-Motion>",       self._on_drag)
         self._canvas.bind("<ButtonRelease-1>", self._on_release)
 
-        # Зум колесом мыши прямо на холсте (Windows/macOS: <MouseWheel>,
-        # Linux: <Button-4>/<Button-5>)
+        # Windows/macOS: <MouseWheel>; Linux: <Button-4>/<Button-5>
         self._canvas.bind("<MouseWheel>", self._on_mousewheel_zoom)
         self._canvas.bind("<Button-4>",   lambda e: self._on_mousewheel_zoom(e, direction=1))
         self._canvas.bind("<Button-5>",   lambda e: self._on_mousewheel_zoom(e, direction=-1))
@@ -339,15 +307,12 @@ class Compare(tk.Toplevel):
                                        self._recompute_fit_and_redraw)
 
     def _on_mouse_move(self, e):
-        # Если мы уже что-то тянем, курсор не меняем
         if self._dragging_divider or self._panning_lmb:
             return
         cw = self._canvas_w or self._canvas.winfo_width()
-        # divider_x — реальное положение линии на холсте (зажатое в картинку)
         divider_x = max(self._off_x,
                         min(self._off_x + self._vw if self._vw else cw,
                             int(cw * self._split)))
-        # Курсор-стрелки только если мышь над линией И внутри картинки
         img_left  = self._off_x
         img_right = self._off_x + self._vw if self._vw else cw
         if img_left <= e.x <= img_right and abs(e.x - divider_x) <= 15:
@@ -362,12 +327,10 @@ class Compare(tk.Toplevel):
                             int(cw * self._split)))
         img_left  = self._off_x
         img_right = self._off_x + self._vw if self._vw else cw
-        # Захват разделителя — только если клик внутри картинки и рядом с линией
         if img_left <= e.x <= img_right and abs(e.x - divider_x) <= 15:
             self._dragging_divider = True
             self._canvas.config(cursor="sb_h_double_arrow")
         else:
-            # Иначе начинаем панорамирование (тянем холст)
             self._panning_lmb = True
             self._pan_last_x = e.x
             self._pan_last_y = e.y
@@ -388,16 +351,14 @@ class Compare(tk.Toplevel):
     def _on_release(self, e):
         self._dragging_divider = False
         self._panning_lmb = False
-        self._on_mouse_move(e) # Обновляем курсор после отпускания
+        self._on_mouse_move(e)
 
     def _update_split_from_x(self, x):
         cw = self._canvas_w or self._canvas.winfo_width()
         if cw <= 0:
             return
-        # Зажимаем x в границы картинки — чтобы _split никогда не кодировал
-        # позицию за пределами изображения (letterbox-отступы слева/справа).
-        # _off_x и _vw актуальны с последнего _redraw; при первом вызове до
-        # первого рендера оба равны 0 и зажатие работает как раньше.
+        # Зажимаем в границы картинки, а не холста — иначе _split мог бы
+        # закодировать позицию внутри letterbox-отступа
         img_left  = self._off_x
         img_right = self._off_x + self._vw if self._vw else cw
         x_clamped = max(img_left, min(img_right, x))
@@ -407,30 +368,18 @@ class Compare(tk.Toplevel):
     # ── переключение между файлами для сравнения ────────────────────────────
 
     def update_lang(self):
-        """Обновляет все надписи окна сравнения при смене языка в App."""
+        """Обновляет надписи окна сравнения при смене языка в App."""
         try:
-            # Заголовок окна
             self.title(self.master.t("compare_title"))
-            # Подпись с именами файлов не меняется — это имена файлов
-            # Подписи BEFORE/AFTER на нижней полосе
-            if hasattr(self, "_lbl_before"):
-                was = self.master.t("was").replace(":", "").upper()
-                self._lbl_before.config(text=f"◀  {was}")
-            if hasattr(self, "_lbl_after"):
-                became = self.master.t("became").replace(":", "").upper()
-                self._lbl_after.config(text=f"{became}  ▶")
-            # Перерисовываем canvas чтобы обновить надписи BEFORE/AFTER на изображении
-            self._request_redraw()
+            self._request_redraw()   # перерисовывает BEFORE/AFTER на холсте
         except Exception:
             pass
 
     def _find_pair(self, start_idx, direction):
-        """Ищет соседний валидный индекс пары "файл / результат" в указанном
-        направлении (-1 — назад, +1 — вперёд), начиная от start_idx (сам
-        start_idx не проверяется). Валидной считается пара, где оба файла
-        (исходный и результат) существуют, а конвертация была успешной —
-        то есть та же логика, что и в App._open_compare().
-        Возвращает (idx, src_path, dst_path) или None, если такой пары нет.
+        """Ищет соседний валидный индекс пары (файл, результат) в направлении
+        direction (-1/+1) от start_idx. Валидна пара, где оба файла существуют
+        и конвертация была успешной (та же логика, что в App._open_compare()).
+        Возвращает (idx, src_path, dst_path) или None.
         """
         files = getattr(self.master, "_files", [])
         results = getattr(self.master, "_results", [])
@@ -460,10 +409,8 @@ class Compare(tk.Toplevel):
         self._load_pair(src_path, dst_path)
 
     def _load_pair(self, src_path, dst_path):
-        """Загружает новую пару изображений в уже открытое окно сравнения,
-        сохраняя текущий зум/панораму/позицию разделителя — удобно для
-        быстрого просмотра одного и того же участка на разных файлах.
-        """
+        """Загружает новую пару в уже открытое окно, сохраняя текущий
+        зум/панораму/позицию разделителя."""
         self._src_path = src_path
         self._dst_path = dst_path
         self._src_name = os.path.basename(src_path)
@@ -471,7 +418,6 @@ class Compare(tk.Toplevel):
         self._src_pil = self._load_pil(src_path)
         self._dst_pil = self._load_pil(dst_path)
 
-        # Сбрасываем кэш подогнанных изображений — пересчитаем под новую пару
         self._src_fit = None
         self._dst_fit = None
 
@@ -514,13 +460,12 @@ class Compare(tk.Toplevel):
             pct = float(self._zoom_var.get())
         except (TypeError, ValueError, tk.TclError):
             pct = 100.0
-            
+
         pct = max(self._ZOOM_MIN_PCT, min(self._ZOOM_MAX_PCT, pct))
         self._zoom = pct / 100.0
         if hasattr(self, "_zoom_lbl"):
             self._zoom_lbl.config(text=f"{int(round(pct))}%")
 
-        # Отложенный пересчёт (debounce)
         if self._zoom_job is not None:
             self.after_cancel(self._zoom_job)
         self._zoom_job = self.after(self._RESIZE_DEBOUNCE_MS, self._recompute_fit_and_redraw)
@@ -531,18 +476,12 @@ class Compare(tk.Toplevel):
         current = self._zoom_var.get()
         new_pct = current + direction * self._ZOOM_WHEEL_STEP_PCT
         new_pct = max(self._ZOOM_MIN_PCT, min(self._ZOOM_MAX_PCT, new_pct))
-        self._zoom_var.set(int(round(new_pct))) # Изменение переменной автоматически обновит FancySlider
+        self._zoom_var.set(int(round(new_pct)))   # обновит и FancySlider
 
     def _request_redraw(self):
-        """Объединяет частые события движения мыши в один кадр перерисовки.
-
-        Без этого каждое отдельное событие <B1-Motion> ставило бы в очередь
-        собственный вызов _redraw(), и при быстром перетаскивании очередь
-        событий Tk копится быстрее, чем успевает рисоваться холст — отсюда
-        ощутимое "отставание" линии сравнения от курсора. after_idle
-        гарантирует, что за один проход цикла обработки событий будет
-        выполнена только одна (последняя по времени) перерисовка.
-        """
+        """Схлопывает частые <B1-Motion> в одну перерисовку через after_idle —
+        иначе при быстром перетаскивании очередь Tk растёт быстрее холста,
+        и линия сравнения заметно отстаёт от курсора."""
         if self._redraw_pending:
             return
         self._redraw_pending = True
@@ -561,16 +500,11 @@ class Compare(tk.Toplevel):
         self._redraw()
 
     def _recompute_fit(self):
-        """Масштабирует оригинальные изображения под текущий размер холста и зум.
-
-        Выполняется только при открытии окна, при изменении размера окна и
-        при изменении зума — НЕ при каждом движении мыши/панорамировании.
-        Это самая дорогая операция (LANCZOS ресемплинг полноразмерных
-        изображений), поэтому она кэшируется в self._src_fit/self._dst_fit.
-        Short-circuit: если холст и зум не изменились — возвращаемся сразу.
-        Сама позиция видимой области (off_x/off_y, панорамирование)
-        вычисляется отдельно в _redraw() — она не требует пересчёта картинки.
-        """
+        """Масштабирует изображения под холст и зум — только при открытии
+        окна, ресайзе и смене зума (не на каждое движение мыши). Дорогая
+        LANCZOS-операция, поэтому кэшируется в _src_fit/_dst_fit; при
+        неизменных холсте/зуме выходим сразу. Позиция видимой области
+        (панорамирование) считается отдельно в _redraw()."""
         c = self._canvas
         cw = c.winfo_width()
         ch = c.winfo_height()
@@ -582,7 +516,6 @@ class Compare(tk.Toplevel):
         scale = base_scale * self._zoom
         nw, nh = max(1, int(iw * scale)), max(1, int(ih * scale))
 
-        # Пропускаем пересчёт если холст и целевой размер не изменились
         if (cw == self._canvas_w and ch == self._canvas_h
                 and nw == self._img_w and nh == self._img_h
                 and self._src_fit is not None):
@@ -599,16 +532,14 @@ class Compare(tk.Toplevel):
     def _prepare_for_display(self, img):
         """Конвертирует RGBA → RGB с фоном цвета холста для отображения.
 
-        ImageTk.PhotoImage значительно быстрее работает с RGB, чем с RGBA —
-        это критично, поскольку PhotoImage создаётся на каждый кадр движения
-        слайдера. Цвет фона берётся через winfo_rgb(), что корректно работает
-        как с hex (#1e1e2e), так и с именованными цветами Tk ("black", "gray10").
+        PhotoImage работает с RGB заметно быстрее, чем с RGBA — критично,
+        так как создаётся на каждый кадр движения слайдера. winfo_rgb()
+        корректно работает и с hex, и с именованными цветами Tk.
         """
         if img.mode != "RGBA":
             return img.convert("RGB") if img.mode != "RGB" else img
         try:
-            # winfo_rgb возвращает (r, g, b) в диапазоне 0–65535
-            r, g, b = self.winfo_rgb(self._bg)
+            r, g, b = self.winfo_rgb(self._bg)   # 0–65535 на канал
             bg_color = (r >> 8, g >> 8, b >> 8)
         except Exception:
             bg_color = (30, 30, 46)
@@ -627,10 +558,9 @@ class Compare(tk.Toplevel):
         cw, ch = self._canvas_w, self._canvas_h
         img_w, img_h = self._img_w, self._img_h
 
-        # Видимая область (viewport) внутри (возможно увеличенного) изображения.
-        # Если изображение меньше холста по какой-то оси — оно центрируется
-        # (letterbox), как и раньше при зуме 100%. Если больше — заполняет
-        # холст по этой оси целиком, и доступно панорамирование в её пределах.
+        # Viewport внутри (возможно увеличенного) изображения: меньше холста
+        # по оси — центрируется (letterbox); больше — заполняет холст и
+        # доступно панорамирование.
         vw = min(cw, img_w)
         vh = min(ch, img_h)
         max_pan_x = max(0, img_w - vw)
@@ -642,25 +572,21 @@ class Compare(tk.Toplevel):
         off_x = (cw - vw) // 2
         off_y = (ch - vh) // 2
 
-        # Кэшируем для _on_mouse_move / _on_press / _update_split_from_x
+        # Для _on_mouse_move / _on_press / _update_split_from_x
         self._off_x = off_x
         self._vw    = vw
 
         split_x = int(cw * self._split)
-
-        # Позиция разделителя зажата в границы картинки: линия никогда не
-        # уходит в пустой letterbox-отступ слева/справа.
+        # Зажат в границы картинки — не уходит в letterbox-отступ
         divider_x = max(off_x, min(off_x + vw, split_x))
 
-        # Только обрезка уже готовых изображений — никакого ресемплинга.
-        # Это дешёвая операция даже для очень больших исходных фото, и не
-        # зависит от того, насколько увеличено изображение, так как обрезаем
-        # не весь увеличенный кадр, а только видимую (размером с холст) часть.
+        # Обрезка уже готовых изображений, без ресемплинга — дёшево даже для
+        # больших фото, не зависит от степени увеличения (обрезаем только
+        # видимую часть, а не весь увеличенный кадр).
         left_px = max(0, min(vw, split_x - off_x))
 
-        # Двойной буфер PhotoImage: держим ссылку на предыдущие объекты до тех
-        # пор, пока не обновим Canvas — иначе Tk может обратиться к уже
-        # удалённому PhotoImage и получить мерцание или падение.
+        # Двойной буфер: держим ссылки на старые PhotoImage до обновления
+        # Canvas — иначе Tk может обратиться к уже удалённому объекту.
         prev_left  = self._left_photo
         prev_right = self._right_photo
 
@@ -671,9 +597,8 @@ class Compare(tk.Toplevel):
         else:
             self._left_photo = None
 
-        # right_px — ширина правой части: от split до правого края картинки.
-        # Когда left_px == 0 (разделитель у левого края) правая часть
-        # покрывает всю картинку целиком — картинка не исчезает.
+        # right_px — от split до правого края картинки; при left_px == 0
+        # правая часть покрывает всю картинку (изображение не исчезает)
         right_px = vw - left_px
         if right_px > 0 and vh > 0:
             right_crop = self._dst_fit.crop(
@@ -687,19 +612,17 @@ class Compare(tk.Toplevel):
         self._draw_divider(divider_x, ch)
         self._draw_labels(off_x, off_y, vw)
 
-        # После обновления Canvas старые PhotoImage можно отпустить
-        del prev_left, prev_right
+        del prev_left, prev_right   # старые PhotoImage больше не нужны
 
     def _draw_left(self, off_x, off_y):
         c = self._canvas
         if self._left_photo is None:
-            # Убираем скрытие _left_item (state="hidden").
-            # Из-за особенностей Tkinter скрытие нижнего слоя принудительно 
-            # заливает область фоном, затирая правое изображение поверх него.
-            # Так как правое изображение (с более высоким Z-index) при left_px == 0 
-            # и так растянуто на всю ширину экрана, оно само идеально перекроет эту область.
+            # Не скрываем _left_item через state="hidden": в Tkinter скрытие
+            # нижнего слоя закрашивает область фоном поверх правого
+            # изображения. При left_px == 0 правое изображение и так
+            # растянуто на всю ширину и само перекрывает эту область.
             return
-        
+
         if self._left_item is None:
             self._left_item = c.create_image(off_x, off_y, anchor="nw",
                                               image=self._left_photo)
@@ -732,11 +655,10 @@ class Compare(tk.Toplevel):
     def _draw_labels(self, off_x, off_y, img_w):
         c = self._canvas
         pad = 12
-        # label_y — независимая переменная, не перезаписывает параметр off_y
-        label_y = self._canvas_h // 2 - pad - 8
+        label_y = self._canvas_h // 2 - pad - 8   # своя переменная, off_y не трогаем
 
-        # Текст берётся из переводов на каждый кадр — при смене языка
-        # надписи обновляются немедленно (fix: else-ветка тоже обновляет текст)
+        # Переводы читаются на каждый кадр, поэтому смена языка сразу
+        # отражается на надписях без отдельной синхронизации
         was_txt    = self.master.t("was").replace(":", "").upper()
         became_txt = self.master.t("became").replace(":", "").upper()
 
