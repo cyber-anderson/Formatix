@@ -353,7 +353,7 @@ BaseClass = TkinterDnD.Tk if HAS_DND else tk.Tk
 
 
 class App(BaseClass):
-    """Главное окно приложения Formatix."""
+    """Главное окно приложения Formatix Image Converter."""
 
     def __init__(self):
         super().__init__()
