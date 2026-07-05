@@ -97,6 +97,7 @@ pip install Pillow pillow-heif tkinterdnd2 resvg-py
 | `converter.py` | Image conversion & processing logic |
 | `compare.py` | Before/after comparison window |
 | `settings.py` | Settings and Donate dialog windows |
+| `update.py` | Checking new version |
 
 2. Run the application:
 ```bash
