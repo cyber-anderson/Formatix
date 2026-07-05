@@ -28,6 +28,7 @@ import random
 import json
 import ctypes
 import subprocess
+import time
 from PIL import Image, ImageTk
 
 # Compare и FancySlider — в compare.py
@@ -38,6 +39,9 @@ from localization import LANGUAGES, STRINGS, detect_system_lang, APP_NAME
 
 # Окна "Настройки" и "Донат" — в settings.py
 from settings import open_settings_window, open_donate_window
+
+# Проверка обновлений через GitHub Releases API — в update.py
+from update import fetch_latest_release, is_newer
 
 # Делаем приложение четким на экранах с масштабированием (High DPI)
 try:
@@ -166,7 +170,12 @@ FG3     = _palette["FG3"]
 BORDER  = _palette["BORDER"]
 CARD_TINT = _palette["CARD_TINT"]
 
-VERSION  = "1.16.0"
+VERSION  = "1.17.0"
+
+# Не проверяем обновления чаще раза в сутки — незачем дёргать GitHub API
+# на каждый запуск, а лимит анонимных запросов (60/час на IP) и без того
+# спокойно выдерживает проверку раз в день на любое число пользователей.
+UPDATE_CHECK_INTERVAL_SEC = 24 * 60 * 60
 
 # Константы анимации сердечка
 _HEART_BEAT1_MS   = 120
@@ -372,6 +381,11 @@ class App(BaseClass):
         # Флаг "запоминать настройки" — хранится всегда, независимо от самого флага
         self._remember_settings = tk.BooleanVar(
             value=self._settings.get("remember_settings", True))
+        # Автопроверка обновлений — как lang/theme, не зависит от remember_settings
+        self._check_updates = tk.BooleanVar(
+            value=self._settings.get("check_updates", True))
+        self._last_update_check = self._settings.get("last_update_check", 0)
+        self._update_available  = None  # (tag, url) после найденного обновления, иначе None
 
         self.title(APP_NAME)
         self.geometry("1150x720")
@@ -482,6 +496,9 @@ class App(BaseClass):
         if HAS_DND:
             self._reg_dnd_root()
 
+        # Небольшая задержка, чтобы не конкурировать с отрисовкой стартового экрана
+        self.after(1500, self._maybe_check_updates)
+
     # ── локализация ───────────────────────────────────────────────────────────
 
     def t(self, key):
@@ -583,6 +600,8 @@ class App(BaseClass):
         self._settings["lang"]              = self._lang
         self._settings["theme"]             = getattr(self, "_theme", "dark")
         self._settings["remember_settings"] = self._remember_settings.get()
+        self._settings["check_updates"]     = self._check_updates.get()
+        self._settings["last_update_check"] = self._last_update_check
 
         # На диск пишем всегда — но если remember выключен,
         # очищаем fmt/quality/resize/out_dir из того что запишем
@@ -595,6 +614,65 @@ class App(BaseClass):
             to_write.pop("filename_preset", None)
             to_write.pop("filename_tokens", None)
         save_settings(to_write)
+
+    # ── проверка обновлений ──────────────────────────────────────────────────
+
+    def _maybe_check_updates(self):
+        """Запускает фоновую проверку обновлений, если это разрешено настройками
+        и с прошлой проверки прошло не меньше UPDATE_CHECK_INTERVAL_SEC.
+
+        Вызывается один раз при старте (см. конец __init__), полностью молча —
+        ни отсутствие сети, ни отключённая настройка не показывают пользователю
+        никаких сообщений об ошибке.
+        """
+        if not self._check_updates.get():
+            return
+        if time.time() - self._last_update_check < UPDATE_CHECK_INTERVAL_SEC:
+            return
+        threading.Thread(target=self._update_check_worker, daemon=True).start()
+
+    def _update_check_worker(self):
+        """Фоновый поток автопроверки: сетевой запрос не должен блокировать GUI."""
+        result = fetch_latest_release()
+        self._last_update_check = time.time()
+        self.after(0, self._save_settings)
+        if result:
+            tag, url = result
+            if is_newer(tag, VERSION):
+                self.after(0, lambda: self._show_update_available(tag, url))
+
+    def _check_updates_now(self, on_result):
+        """Проверка обновлений по клику "Проверить сейчас" в настройках.
+
+        В отличие от _maybe_check_updates, игнорирует интервал между проверками
+        (это явное действие пользователя) и не зависит от значения _check_updates.
+        on_result вызывается в GUI-потоке с одним из статусов:
+        "update" (tag, url — версия и ссылка на релиз), "uptodate", "error".
+        """
+        def worker():
+            result = fetch_latest_release()
+            self._last_update_check = time.time()
+            self.after(0, self._save_settings)
+            if result is None:
+                self.after(0, lambda: on_result("error"))
+                return
+            tag, url = result
+            if is_newer(tag, VERSION):
+                self.after(0, lambda: self._show_update_available(tag, url))
+                self.after(0, lambda: on_result("update", tag, url))
+            else:
+                self.after(0, lambda: on_result("uptodate"))
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _show_update_available(self, tag, url):
+        """Подсвечивает версию в шапке окна найденным обновлением (GUI-поток)."""
+        self._update_available = (tag, url)
+        self._ver_lbl.config(text=self.t("update_ver_label").format(version=tag), fg=ACCENT2)
+        for seq in ("<Button-1>", "<Enter>", "<Leave>"):
+            self._ver_lbl.unbind(seq)
+        self._ver_lbl.bind("<Button-1>", lambda e: webbrowser.open(url))
+        self._ver_lbl.bind("<Enter>", lambda e: self._ver_lbl.config(fg=ACCENT))
+        self._ver_lbl.bind("<Leave>", lambda e: self._ver_lbl.config(fg=ACCENT2))
 
     # ── стили ─────────────────────────────────────────────────────────────────
 
@@ -652,6 +730,7 @@ class App(BaseClass):
             "https://github.com/cyber-anderson/Formatix/releases"))
         _ver_lbl.bind("<Enter>", lambda e: _ver_lbl.config(fg=FG))
         _ver_lbl.bind("<Leave>", lambda e: _ver_lbl.config(fg=FG2))
+        self._ver_lbl = _ver_lbl
 
         self._heart_container = tk.Frame(hdr, bg=BG2, width=45, height=56)
         self._heart_container.pack(side="right", padx=(0, 20))
@@ -1655,6 +1734,13 @@ class App(BaseClass):
     def _update_ui_strings(self):
         """Перерисовывает все надписи интерфейса при смене языка."""
         self.title(APP_NAME)
+
+        # Если уже найдено обновление, метка версии показывает не "vX.X.X",
+        # а текст из update_ver_label — его тоже нужно перевести
+        if self._update_available:
+            tag, _url = self._update_available
+            self._ver_lbl.config(text=self.t("update_ver_label").format(version=tag))
+
         self._add_btn.config(text=self.t("add"))
         self._clear_btn.config(text=self.t("clear"))
 
