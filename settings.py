@@ -103,7 +103,7 @@ def open_settings_window(app, colors):
 
     settings_title_lbl = tk.Label(win, text=app.t("settings_title"),
                                   font=("Segoe UI", 12, "bold"), bg=BG, fg=FG)
-    settings_title_lbl.pack(pady=(18, 10))
+    settings_title_lbl.pack(pady=(18, 14))
 
     # Уведомление о необходимости перезапуска — появляется только когда нужно,
     # сразу под заголовком, перед языком интерфейса
@@ -126,7 +126,7 @@ def open_settings_window(app, colors):
     cb.pack(side="right")
 
     theme_row = tk.Frame(win, bg=BG)
-    theme_row.pack(padx=24, fill="x", pady=(10, 0))
+    theme_row.pack(padx=24, fill="x", pady=(6, 0))
 
     theme_lbl = tk.Label(theme_row, text=app.t("settings_theme"),
                          font=("Segoe UI", 10), bg=BG, fg=FG2)
@@ -141,7 +141,7 @@ def open_settings_window(app, colors):
 
     def _show_restart_note(show):
         if show:
-            restart_note.pack(fill="x", padx=24, pady=(0, 10), before=row)
+            restart_note.pack(fill="x", padx=24, pady=(0, 6), before=row)
         else:
             restart_note.pack_forget()
         _fit_window()
@@ -162,7 +162,7 @@ def open_settings_window(app, colors):
     theme_cb.bind("<<ComboboxSelected>>", on_theme_select)
 
     remember_row = tk.Frame(win, bg=BG, cursor="hand2")
-    remember_row.pack(padx=24, fill="x", pady=(10, 0))
+    remember_row.pack(padx=24, fill="x", pady=(6, 0))
 
     remember_lbl = tk.Label(remember_row, text=app.t("settings_remember"),
                             font=("Segoe UI", 10), bg=BG, fg=FG2, cursor="hand2")
@@ -195,7 +195,7 @@ def open_settings_window(app, colors):
 
     # ── Автопроверка обновлений ────────────────────────────────────────────
     check_row = tk.Frame(win, bg=BG, cursor="hand2")
-    check_row.pack(padx=24, fill="x", pady=(10, 0))
+    check_row.pack(padx=24, fill="x", pady=(6, 0))
 
     check_lbl = tk.Label(check_row, text=app.t("settings_check_updates"),
                          font=("Segoe UI", 10), bg=BG, fg=FG2, cursor="hand2")
@@ -315,14 +315,14 @@ def open_settings_window(app, colors):
 
     # ── ИМЯ ФАЙЛА ────────────────────────────────────────────────────────
     fn_sep = tk.Frame(win, bg=BORDER, height=1)
-    fn_sep.pack(fill="x", padx=24, pady=(10, 10))
+    fn_sep.pack(fill="x", padx=24, pady=(6, 6))
 
     fn_title = tk.Label(win, text=app.t("settings_filename_lbl"),
                         font=("Segoe UI", 10, "bold"), bg=BG, fg=FG2)
     fn_title.pack(padx=24, anchor="w")
 
     fn_preset_row = tk.Frame(win, bg=BG)
-    fn_preset_row.pack(padx=24, fill="x", pady=(10, 0))
+    fn_preset_row.pack(padx=24, fill="x", pady=(6, 0))
 
     PRESET_KEYS = ["original", "number", "date", "custom"]
 
@@ -369,7 +369,7 @@ def open_settings_window(app, colors):
 
     # ── Предпросмотр ────────────────────────────────────────────────────
     preview_row = tk.Frame(win, bg=BG)
-    preview_row.pack(padx=24, fill="x", pady=(10, 18))
+    preview_row.pack(padx=24, fill="x", pady=(6, 18))
     preview_caption = tk.Label(preview_row, text=app.t("fn_preview_lbl"),
                                font=("Segoe UI", 8), bg=BG, fg=FG3)
     preview_caption.pack(side="left")
@@ -410,7 +410,7 @@ def open_settings_window(app, colors):
     def _refresh_builder_state():
         is_custom = (app._filename_preset.get() == "custom")
         if is_custom:
-            builder_card.pack(padx=24, fill="x", pady=(10, 0), before=preview_row)
+            builder_card.pack(padx=24, fill="x", pady=(6, 0), before=preview_row)
         else:
             builder_card.pack_forget()
         _fit_window()
