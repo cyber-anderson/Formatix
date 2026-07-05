@@ -40,6 +40,9 @@
     app._filename_preset        — tk.StringVar (пресет имени файла)
     app._filename_tokens        — список токенов пользовательского шаблона
     app._btn(parent, text, cmd, dim=False) — фабрика стилизованных кнопок
+    app._check_updates          — tk.BooleanVar (автопроверка обновлений)
+    app._check_updates_now(on_result) — ручная проверка, on_result получает
+                                  "update"/"uptodate"/"error" (и версию для "update")
 """
 
 import tkinter as tk
@@ -189,6 +192,84 @@ def open_settings_window(app, colors):
     for w in (remember_row, remember_lbl, chk_canvas):
         w.bind("<Button-1>", _toggle_checkbox)
 
+    # ── Автопроверка обновлений ────────────────────────────────────────────
+    check_row = tk.Frame(win, bg=BG, cursor="hand2")
+    check_row.pack(padx=24, fill="x", pady=(8, 0))
+
+    check_lbl = tk.Label(check_row, text=app.t("settings_check_updates"),
+                         font=("Segoe UI", 10), bg=BG, fg=FG2, cursor="hand2")
+    check_lbl.pack(side="left")
+
+    check_canvas = tk.Canvas(check_row, width=BOX, height=BOX,
+                             bg=BG, bd=0, highlightthickness=0, cursor="hand2")
+    check_canvas.pack(side="left", padx=(8, 0))
+
+    def _draw_check_updates_box():
+        check_canvas.delete("all")
+        checked = app._check_updates.get()
+        check_canvas.create_rectangle(1, 1, BOX-1, BOX-1,
+                                      outline=ACCENT if checked else FG3,
+                                      fill=ACCENT if checked else BG, width=1)
+        if checked:
+            check_canvas.create_line(3, 8, 6, 12, fill="#fff", width=2)
+            check_canvas.create_line(6, 12, 13, 4, fill="#fff", width=2)
+
+    def _toggle_check_updates(e=None):
+        app._check_updates.set(not app._check_updates.get())
+        _draw_check_updates_box()
+        app._save_settings()
+
+    _draw_check_updates_box()
+
+    for w in (check_row, check_lbl, check_canvas):
+        w.bind("<Button-1>", _toggle_check_updates)
+
+    # Ручная проверка — работает независимо от чекбокса выше: отключённая
+    # автопроверка не должна лишать возможности проверить вручную.
+    check_now_lbl = tk.Label(win, text=app.t("update_check_now"),
+                             font=("Segoe UI", 9), bg=BG, fg=FG2, cursor="hand2")
+    check_now_lbl.pack(padx=24, anchor="w", pady=(4, 0))
+
+    # Хранит найденное обновление, пока открыто окно настроек: если версия
+    # найдена, ссылка больше не должна возвращаться в состояние "Проверить
+    # сейчас" сама по себе и должна вести на страницу релиза, а не запускать
+    # поиск заново.
+    _found_update = {"tag": None, "url": None}
+
+    def _restore_after_feedback():
+        # Не затираем состояние "найдено обновление" — оно должно остаться
+        # видимым и кликабельным, пока диалог открыт
+        if win.winfo_exists() and _found_update["tag"] is None:
+            check_now_lbl.config(text=app.t("update_check_now"), fg=FG2)
+
+    def _open_found_update(e=None):
+        webbrowser.open(_found_update["url"])
+
+    def _on_check_now(e=None):
+        check_now_lbl.config(text=app.t("update_checking"), fg=FG2)
+
+        def _handle_result(status, tag=None, url=None):
+            if not win.winfo_exists():
+                return
+            if status == "update":
+                _found_update["tag"] = tag
+                _found_update["url"] = url
+                check_now_lbl.config(text=app.t("update_ver_label").format(version=tag), fg=ACCENT)
+                check_now_lbl.unbind("<Button-1>")
+                check_now_lbl.bind("<Button-1>", _open_found_update)
+            elif status == "uptodate":
+                check_now_lbl.config(text=app.t("update_up_to_date"), fg=FG2)
+                win.after(4000, _restore_after_feedback)
+            else:
+                check_now_lbl.config(text=app.t("update_check_failed"), fg=FG2)
+                win.after(4000, _restore_after_feedback)
+
+        app._check_updates_now(_handle_result)
+
+    check_now_lbl.bind("<Button-1>", _on_check_now)
+    check_now_lbl.bind("<Enter>", lambda e: check_now_lbl.config(fg=ACCENT2 if _found_update["tag"] else FG))
+    check_now_lbl.bind("<Leave>", lambda e: check_now_lbl.config(fg=ACCENT if _found_update["tag"] else FG2))
+
     def on_lang_select(e):
         selected_name = cb.get()
         for code, name in LANGUAGES.items():
@@ -200,6 +281,11 @@ def open_settings_window(app, colors):
                 settings_title_lbl.config(text=app.t("settings_title"))
                 lang_lbl.config(text=app.t("settings_lang"))
                 remember_lbl.config(text=app.t("settings_remember"))
+                check_lbl.config(text=app.t("settings_check_updates"))
+                if _found_update["tag"]:
+                    check_now_lbl.config(text=app.t("update_ver_label").format(version=_found_update["tag"]))
+                else:
+                    check_now_lbl.config(text=app.t("update_check_now"), fg=FG2)
                 theme_lbl.config(text=app.t("settings_theme"))
                 theme_names_new = [app.t("theme_dark"), app.t("theme_light")]
                 theme_cb.config(values=theme_names_new)
