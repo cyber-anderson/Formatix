@@ -103,7 +103,14 @@ def open_settings_window(app, colors):
 
     settings_title_lbl = tk.Label(win, text=app.t("settings_title"),
                                   font=("Segoe UI", 12, "bold"), bg=BG, fg=FG)
-    settings_title_lbl.pack(pady=(18, 12))
+    settings_title_lbl.pack(pady=(18, 10))
+
+    # Уведомление о необходимости перезапуска — появляется только когда нужно,
+    # сразу под заголовком, перед языком интерфейса
+    restart_note = tk.Label(win, text="",
+                            font=("Segoe UI", 8), bg=BG, fg=ACCENT2,
+                            wraplength=260, justify="center")
+    # .pack()/.pack_forget() управляются в _show_restart_note()
 
     row = tk.Frame(win, bg=BG)
     row.pack(padx=24, fill="x")
@@ -132,15 +139,9 @@ def open_settings_window(app, colors):
     theme_cb.set(app.t("theme_dark") if app._theme == "dark" else app.t("theme_light"))
     theme_cb.pack(side="right")
 
-    # Уведомление о необходимости перезапуска — появляется только когда нужно
-    restart_note = tk.Label(win, text="",
-                            font=("Segoe UI", 8), bg=BG, fg=ACCENT2,
-                            wraplength=260, justify="center")
-    # .pack()/.pack_forget() управляются в _show_restart_note()
-
     def _show_restart_note(show):
         if show:
-            restart_note.pack(fill="x", padx=24, pady=(6, 0), before=fn_sep)
+            restart_note.pack(fill="x", padx=24, pady=(0, 10), before=row)
         else:
             restart_note.pack_forget()
         _fit_window()
@@ -161,7 +162,7 @@ def open_settings_window(app, colors):
     theme_cb.bind("<<ComboboxSelected>>", on_theme_select)
 
     remember_row = tk.Frame(win, bg=BG, cursor="hand2")
-    remember_row.pack(padx=24, fill="x", pady=(12, 0))
+    remember_row.pack(padx=24, fill="x", pady=(10, 0))
 
     remember_lbl = tk.Label(remember_row, text=app.t("settings_remember"),
                             font=("Segoe UI", 10), bg=BG, fg=FG2, cursor="hand2")
@@ -194,7 +195,7 @@ def open_settings_window(app, colors):
 
     # ── Автопроверка обновлений ────────────────────────────────────────────
     check_row = tk.Frame(win, bg=BG, cursor="hand2")
-    check_row.pack(padx=24, fill="x", pady=(8, 0))
+    check_row.pack(padx=24, fill="x", pady=(10, 0))
 
     check_lbl = tk.Label(check_row, text=app.t("settings_check_updates"),
                          font=("Segoe UI", 10), bg=BG, fg=FG2, cursor="hand2")
@@ -227,7 +228,7 @@ def open_settings_window(app, colors):
     # Ручная проверка — работает независимо от чекбокса выше: отключённая
     # автопроверка не должна лишать возможности проверить вручную.
     check_now_lbl = tk.Label(win, text=app.t("update_check_now"),
-                             font=("Segoe UI", 9), bg=BG, fg=FG2, cursor="hand2")
+                             font=("Segoe UI", 9), bg=BG, fg=ACCENT, cursor="hand2")
     check_now_lbl.pack(padx=24, anchor="w", pady=(4, 0))
 
     # Хранит найденное обновление, пока открыто окно настроек: если версия
@@ -240,13 +241,13 @@ def open_settings_window(app, colors):
         # Не затираем состояние "найдено обновление" — оно должно остаться
         # видимым и кликабельным, пока диалог открыт
         if win.winfo_exists() and _found_update["tag"] is None:
-            check_now_lbl.config(text=app.t("update_check_now"), fg=FG2)
+            check_now_lbl.config(text=app.t("update_check_now"), fg=ACCENT)
 
     def _open_found_update(e=None):
         webbrowser.open(_found_update["url"])
 
     def _on_check_now(e=None):
-        check_now_lbl.config(text=app.t("update_checking"), fg=FG2)
+        check_now_lbl.config(text=app.t("update_checking"), fg=ACCENT)
 
         def _handle_result(status, tag=None, url=None):
             if not win.winfo_exists():
@@ -258,17 +259,17 @@ def open_settings_window(app, colors):
                 check_now_lbl.unbind("<Button-1>")
                 check_now_lbl.bind("<Button-1>", _open_found_update)
             elif status == "uptodate":
-                check_now_lbl.config(text=app.t("update_up_to_date"), fg=FG2)
+                check_now_lbl.config(text=app.t("update_up_to_date"), fg=ACCENT)
                 win.after(4000, _restore_after_feedback)
             else:
-                check_now_lbl.config(text=app.t("update_check_failed"), fg=FG2)
+                check_now_lbl.config(text=app.t("update_check_failed"), fg=ACCENT)
                 win.after(4000, _restore_after_feedback)
 
         app._check_updates_now(_handle_result)
 
     check_now_lbl.bind("<Button-1>", _on_check_now)
-    check_now_lbl.bind("<Enter>", lambda e: check_now_lbl.config(fg=ACCENT2 if _found_update["tag"] else FG))
-    check_now_lbl.bind("<Leave>", lambda e: check_now_lbl.config(fg=ACCENT if _found_update["tag"] else FG2))
+    check_now_lbl.bind("<Enter>", lambda e: check_now_lbl.config(fg=ACCENT2))
+    check_now_lbl.bind("<Leave>", lambda e: check_now_lbl.config(fg=ACCENT))
 
     def on_lang_select(e):
         selected_name = cb.get()
@@ -285,7 +286,7 @@ def open_settings_window(app, colors):
                 if _found_update["tag"]:
                     check_now_lbl.config(text=app.t("update_ver_label").format(version=_found_update["tag"]))
                 else:
-                    check_now_lbl.config(text=app.t("update_check_now"), fg=FG2)
+                    check_now_lbl.config(text=app.t("update_check_now"), fg=ACCENT)
                 theme_lbl.config(text=app.t("settings_theme"))
                 theme_names_new = [app.t("theme_dark"), app.t("theme_light")]
                 theme_cb.config(values=theme_names_new)
@@ -314,14 +315,14 @@ def open_settings_window(app, colors):
 
     # ── ИМЯ ФАЙЛА ────────────────────────────────────────────────────────
     fn_sep = tk.Frame(win, bg=BORDER, height=1)
-    fn_sep.pack(fill="x", padx=24, pady=(14, 10))
+    fn_sep.pack(fill="x", padx=24, pady=(10, 10))
 
     fn_title = tk.Label(win, text=app.t("settings_filename_lbl"),
                         font=("Segoe UI", 10, "bold"), bg=BG, fg=FG2)
     fn_title.pack(padx=24, anchor="w")
 
     fn_preset_row = tk.Frame(win, bg=BG)
-    fn_preset_row.pack(padx=24, fill="x", pady=(6, 0))
+    fn_preset_row.pack(padx=24, fill="x", pady=(10, 0))
 
     PRESET_KEYS = ["original", "number", "date", "custom"]
 
