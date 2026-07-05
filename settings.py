@@ -43,6 +43,7 @@
     app._check_updates          — tk.BooleanVar (автопроверка обновлений)
     app._check_updates_now(on_result) — ручная проверка, on_result получает
                                   "update"/"uptodate"/"error" (и версию для "update")
+    app.VERSION                  — текущая версия приложения (для v{old} → v{new})
 """
 
 import tkinter as tk
@@ -255,7 +256,8 @@ def open_settings_window(app, colors):
             if status == "update":
                 _found_update["tag"] = tag
                 _found_update["url"] = url
-                check_now_lbl.config(text=app.t("update_ver_label").format(version=tag), fg=ACCENT)
+                check_now_lbl.config(text=app.t("update_ver_label").format(
+                    old=app.VERSION, new=tag), fg=ACCENT)
                 check_now_lbl.unbind("<Button-1>")
                 check_now_lbl.bind("<Button-1>", _open_found_update)
             elif status == "uptodate":
@@ -284,7 +286,8 @@ def open_settings_window(app, colors):
                 remember_lbl.config(text=app.t("settings_remember"))
                 check_lbl.config(text=app.t("settings_check_updates"))
                 if _found_update["tag"]:
-                    check_now_lbl.config(text=app.t("update_ver_label").format(version=_found_update["tag"]))
+                    check_now_lbl.config(text=app.t("update_ver_label").format(
+                        old=app.VERSION, new=_found_update["tag"]))
                 else:
                     check_now_lbl.config(text=app.t("update_check_now"), fg=ACCENT)
                 theme_lbl.config(text=app.t("settings_theme"))
