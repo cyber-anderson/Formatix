@@ -170,7 +170,14 @@ FG3     = _palette["FG3"]
 BORDER  = _palette["BORDER"]
 CARD_TINT = _palette["CARD_TINT"]
 
-VERSION  = "1.17.0"
+VERSION  = "1.15.0"
+
+
+def strip_v_prefix(version_str):
+    """Убирает необязательный префикс v/V у номера версии (теги GitHub releases
+    обычно вида "v1.18.0", а VERSION хранится без него) — чтобы v{old} → v{new}
+    не задваивал "v" независимо от того, есть ли префикс в исходной строке."""
+    return version_str.lstrip("vV") if version_str else version_str
 
 # Не проверяем обновления чаще раза в сутки — незачем дёргать GitHub API
 # на каждый запуск, а лимит анонимных запросов (60/час на IP) и без того
@@ -386,6 +393,7 @@ class App(BaseClass):
             value=self._settings.get("check_updates", True))
         self._last_update_check = self._settings.get("last_update_check", 0)
         self._update_available  = None  # (tag, url) после найденного обновления, иначе None
+        self.VERSION = VERSION  # доступно settings.py без импорта из этого модуля
 
         self.title(APP_NAME)
         self.geometry("1150x720")
@@ -667,7 +675,8 @@ class App(BaseClass):
     def _show_update_available(self, tag, url):
         """Подсвечивает версию в шапке окна найденным обновлением (GUI-поток)."""
         self._update_available = (tag, url)
-        self._ver_lbl.config(text=self.t("update_ver_label").format(version=tag), fg=ACCENT2)
+        self._ver_lbl.config(text=self.t("update_ver_label").format(
+            old=strip_v_prefix(VERSION), new=strip_v_prefix(tag)), fg=ACCENT2)
         for seq in ("<Button-1>", "<Enter>", "<Leave>"):
             self._ver_lbl.unbind(seq)
         self._ver_lbl.bind("<Button-1>", lambda e: webbrowser.open(url))
@@ -1739,7 +1748,8 @@ class App(BaseClass):
         # а текст из update_ver_label — его тоже нужно перевести
         if self._update_available:
             tag, _url = self._update_available
-            self._ver_lbl.config(text=self.t("update_ver_label").format(version=tag))
+            self._ver_lbl.config(text=self.t("update_ver_label").format(
+                old=strip_v_prefix(VERSION), new=strip_v_prefix(tag)))
 
         self._add_btn.config(text=self.t("add"))
         self._clear_btn.config(text=self.t("clear"))
