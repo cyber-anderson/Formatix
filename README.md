@@ -99,7 +99,7 @@ pip install Pillow pillow-heif tkinterdnd2 resvg-py
 | `settings.py` | Settings and Donate dialog windows |
 | `update.py` | Checking new version |
 
-2. Run the application:
+3. Run the application:
 ```bash
 python formatix.py
 ```
