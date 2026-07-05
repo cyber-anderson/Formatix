@@ -41,7 +41,7 @@ from localization import LANGUAGES, STRINGS, detect_system_lang, APP_NAME
 from settings import open_settings_window, open_donate_window
 
 # Проверка обновлений через GitHub Releases API — в update.py
-from update import fetch_latest_release, is_newer
+from update import fetch_latest_release, is_newer, check_for_update
 
 # Делаем приложение четким на экранах с масштабированием (High DPI)
 try:
@@ -170,7 +170,7 @@ FG3     = _palette["FG3"]
 BORDER  = _palette["BORDER"]
 CARD_TINT = _palette["CARD_TINT"]
 
-VERSION  = "1.17.0"
+VERSION  = "1.17.1"
 
 # Не проверяем обновления чаще раза в сутки — незачем дёргать GitHub API
 # на каждый запуск, а лимит анонимных запросов (60/час на IP) и без того
@@ -634,13 +634,12 @@ class App(BaseClass):
 
     def _update_check_worker(self):
         """Фоновый поток автопроверки: сетевой запрос не должен блокировать GUI."""
-        result = fetch_latest_release()
+        result = check_for_update(VERSION)
         self._last_update_check = time.time()
         self.after(0, self._save_settings)
         if result:
             tag, url = result
-            if is_newer(tag, VERSION):
-                self.after(0, lambda: self._show_update_available(tag, url))
+            self.after(0, lambda: self._show_update_available(tag, url))
 
     def _check_updates_now(self, on_result):
         """Проверка обновлений по клику "Проверить сейчас" в настройках.
