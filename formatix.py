@@ -2226,7 +2226,8 @@ class App(BaseClass):
 
         futures          = {}
         results_by_path  = {}
-        with ThreadPoolExecutor(max_workers=workers) as pool:
+        pool = ThreadPoolExecutor(max_workers=workers)
+        try:
             for path in files_snapshot:
                 out_name = allocated_names[path]
                 f = pool.submit(convert_one, path, out_dir, fmt, out_name, quality,
@@ -2249,10 +2250,15 @@ class App(BaseClass):
                 })
                 # Проверяем флаг остановки после каждого завершённого файла
                 if self._stop_requested:
-                    # Отменяем ещё не запущенные задачи
-                    for f in futures:
-                        f.cancel()
                     break
+        finally:
+            # wait=False — не блокируем поток в ожидании уже запущенных задач
+            # (их всё равно нельзя прервать на середине, Python не умеет убивать
+            # поток силой); cancel_futures=True снимает те, что ещё не стартовали.
+            # Именно блокирующий wait=True (поведение "with"-блока по умолчанию)
+            # и вызывал видимое зависание при остановке — метод не мог продолжить
+            # работу, пока не завершатся все параллельно запущенные конвертации.
+            pool.shutdown(wait=False, cancel_futures=True)
 
         # Вставляем только завершённые результаты (при остановке — частичные)
         for path in files_snapshot:
