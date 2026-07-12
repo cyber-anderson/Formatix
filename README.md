@@ -63,7 +63,7 @@ Formatix Image Converter is a powerful desktop application designed to batch con
 * **Smart Conversion Cache** — automatically skips files already converted with identical settings to save time
 * **Safe Processing** — features atomic file writes (prevents partially written output files) and overwrite protection
 * **Built-in Image Comparison** — easily compare the source file with the processed result side-by-side
-* **Multilingual UI** — 5 interface languages: English, Русский, Українська, Deutsch, 中文
+* **Multilingual UI** — 6 interface languages: English, Русский, Українська, Deutsch, Suomi, 中文
 * **Light & Dark Mode** — switch between themes in Settings
 
 ---
