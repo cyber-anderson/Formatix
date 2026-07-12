@@ -34,7 +34,7 @@ import locale
 # импортирует APP_NAME отсюда же, а не определяет свою копию.
 APP_NAME = "Formatix Image Converter"
 
-LANGUAGES = {"en": "English", "ru": "Русский", "uk": "Українська", "de": "Deutsch", "zh": "中文"}
+LANGUAGES = {"en": "English", "ru": "Русский", "uk": "Українська", "de": "Deutsch", "fi": "Suomi", "zh": "中文"}
 
 STRINGS = {
     "en": {
@@ -266,6 +266,63 @@ STRINGS = {
         "fn_custom_text_prompt": "Einzufügenden Text eingeben",
         "fn_empty_hint": "Oben auf eine Schaltfläche klicken, um eine Vorlage zu erstellen",
     },
+    "fi": {
+        "add": "+ Lisää", "clear": "✕ Tyhjennä",
+        "src_panel": "📂  Lähdetiedostot", "dst_panel": "✅  Tulos",
+        "save_folder": "TALLENNUSKANSIO", "folder_placeholder": "ei valittu — kysytään muunnettaessa",
+        "pick_dir": "📁 Valitse", "format_lbl": "MUOTO", "quality_lbl": "LAATU",
+        "resize_lbl": "TARKKUUDEN MUUTTAMINEN", "progress_lbl": "EDISTYMINEN",
+        "filesize_lbl": "TIEDOSTOKOKO", "was": "Ennen:", "became": "Jälkeen:",
+        "convert_btn": "▶  Muunna", "processing_btn": "▶  Käsitellään...", "stop_btn": "■  Pysäytä",
+        "col_filename": "Tiedostonimi", "col_res": "Tarkkuus", "col_size": "Koko", "col_status": "Tila",
+        "drop_hint": "Vedä kuvat tähän\ntai napsauta selataksesi", "drop_release": "Pudota tiedostot tähän!",
+        "ready": "Valmis", "files_count": "Tiedostoja: {n}",
+        "cleared": "Lista tyhjennetty",
+        "warn_no_files": "Lisää ensin tiedostoja!",
+        "warn_bad_size": "Anna leveyden ja korkeuden arvot.",
+        "overwrite_title": "Tiedostoja on jo olemassa",
+        "overwrite_msg": "Seuraavat tiedostot ovat jo kohdekansiossa:\n\n{names}\n\nKorvataanko ne?",
+        "overwrite_more": "\n... ja {n} muuta",
+        "resize_no_change": "Ei muutoksia",
+        "resize_prop_w": "Suhteellinen (leveyden mukaan)",
+        "resize_prop_h": "Suhteellinen (korkeuden mukaan)",
+        "resize_crop": "Älykäs rajaus (täyttö)",
+        "settings_title": "Asetukset",
+        "settings_lang": "Käyttöliittymän kieli",
+        "donate_title": "Tue kehitystä",
+        "donate_sub": f"Kiitos, että käytät sovellusta {APP_NAME}!",
+        "donate_desc": "Jos ohjelma säästi aikaasi, voit\ntukea sen kehitystä:",
+        "donate_copied": "Osoite kopioitu!",
+        "donate_btn": "Avaa lompakkosivu",
+        "auto": "Automaattinen",
+        "cache_tag": " (välimuisti)",
+        "resize_custom": "Mukautettu",
+        "ico_too_large_title": "ICO-koon raja",
+        "ico_too_large_msg": "ICO-muoto ei tue yli 256×256-tarkkuutta.\nKuvan kokoa muutetaan sopivaksi.",
+        "ico_too_large_cancel": "Peruuta",
+        "ico_too_large_ok": "OK",
+        "settings_remember": "Muista asetukset",
+        "settings_theme": "Teema", "theme_dark": "Tumma", "theme_light": "Vaalea",
+        "theme_restart_note": "Käynnistä sovellus uudelleen ottaaksesi uuden teeman käyttöön.",
+        "settings_check_updates": "Tarkista päivitykset automaattisesti",
+        "update_check_now": "Tarkista nyt", "update_checking": "Tarkistetaan…",
+        "update_up_to_date": "Sinulla on uusin versio",
+        "update_check_failed": "Päivitysten tarkistus epäonnistui",
+        "update_ver_label": "päivitys v{old} → {new} saatavilla",
+        "svg_no_size_title": "SVG: koko vaaditaan",
+        "svg_no_size_msg": "SVG-tiedostoilla ei ole kiinteää tarkkuutta.\nAseta leveys ja korkeus tilassa “Mukautettu” ennen muuntamista.",
+        "compare_btn": "🆚 Vertaa", "compare_title": "Vertailu",
+        "compare_no_files": "Ei vertailtavia tiedostoja",
+        "qmode_percent": "%", "qmode_size": "Koko",
+        "warn_bad_target_size": "Anna kelvollinen kohdetiedoston koko (suurempi kuin 0).",
+        "settings_filename_lbl": "Tiedostonimi",
+        "fn_preset_original": "Pidä ennallaan", "fn_preset_number": "Nimi + juokseva numero",
+        "fn_preset_date": "Nimi + päivämäärä", "fn_preset_custom": "Mukautettu malli…",
+        "fn_add_name": "Tiedostonimi", "fn_add_index": "Numero", "fn_add_date": "Päivämäärä",
+        "fn_add_text": "Oma teksti…", "fn_clear": "Tyhjennä", "fn_preview_lbl": "Esikatselu:",
+        "fn_custom_text_prompt": "Anna lisättävä teksti",
+        "fn_empty_hint": "Napsauta yllä olevaa painiketta rakentaaksesi mallin",
+    },
     "zh": {
         "add": "+ 添加", "clear": "✕ 清空",
         "src_panel": "📂  源文件", "dst_panel": "✅  结果",
@@ -337,7 +394,7 @@ def detect_system_lang():
     """
     # Таблица: LCID / BCP-47 префикс → код приложения
     _LANG_MAP = {
-        "ru": "ru", "uk": "uk", "de": "de",
+        "ru": "ru", "uk": "uk", "de": "de", "fi": "fi",
         "zh": "zh", "be": "ru",
     }
 
@@ -353,6 +410,7 @@ def detect_system_lang():
                 0x22: "uk",  # Ukrainian
                 0x23: "be",  # Belarusian
                 0x07: "de",  # German
+                0x0B: "fi",  # Finnish
                 0x04: "zh",  # Chinese
             }
             if primary in _LCID_PRIMARY:
