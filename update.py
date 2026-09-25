@@ -15,36 +15,29 @@
 # You should have received a copy of the GNU General Public License
 # along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-"""Проверка обновлений через SourceForge Release API (best_release.json).
+"""Проверка обновлений через GitHub Releases API.
 
 Модуль самодостаточен — использует только стандартную библиотеку
-(urllib, json, re) и не знает ничего про Tkinter или структуру главного
+(urllib, json) и не знает ничего про Tkinter или структуру главного
 приложения. Сетевой вызов синхронный и блокирующий, поэтому вызывающий
 код обязан запускать check_for_update() в фоновом потоке, а не в
 GUI-потоке.
 
-Приложение анонимно (без ключа) обращается к публичному API
-https://sourceforge.net/projects/<project>/best_release.json — он
-отдаёт информацию о файле, помеченном на SourceForge как релиз по
-умолчанию (см. https://sourceforge.net/p/forge/documentation/Using%20the%20Release%20API/).
-Готового поля с номером версии там нет — версия зашита в имени папки
-релиза (у этого проекта релизы лежат в папках вида /files/v1.17.3/…,
-см. https://sourceforge.net/projects/formatix-image-converter/files/),
-поэтому она извлекается регуляркой из пути до файла.
+Приложение анонимно (без токена) обращается к публичному GitHub API —
+лимит 60 запросов/час действует на IP-адрес, а не на репозиторий или
+пользователя, так что даже при большом числе пользователей приложения
+исчерпать его на практике нереально, особенно если проверять не чаще
+раза в день (см. UPDATE_CHECK_INTERVAL_SEC и _should_check_now в
+formatix.py).
 """
 
 import json
-import re
 import urllib.request
 import urllib.error
 
-SF_PROJECT   = "formatix-image-converter"
-API_URL      = f"https://sourceforge.net/projects/{SF_PROJECT}/best_release.json"
-RELEASES_URL = f"https://sourceforge.net/projects/{SF_PROJECT}/files/"
-
-# Версия — это имя папки релиза сразу после /files/, например
-# ".../files/v1.17.3/v1.17.3 source code.zip/download" -> "v1.17.3".
-_VERSION_FOLDER_RE = re.compile(r"/files/([^/]+)/")
+GITHUB_REPO  = "cyber-anderson/Formatix"
+API_URL      = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
+RELEASES_URL = f"https://github.com/{GITHUB_REPO}/releases/latest"
 
 
 def parse_version(version_str):
@@ -71,37 +64,17 @@ def is_newer(remote_version, current_version):
     return parse_version(remote_version) > parse_version(current_version)
 
 
-def _extract_version(release_entry):
-    """Достаёт 'v1.17.3' из filename/url записи best_release.json.
-
-    release_entry — это либо весь JSON-объект (для релиза по умолчанию),
-    либо под-объект platform_releases.<platform> — у обоих есть filename
-    с путём вида '/formatix-image-converter/files/v1.17.3/имя/download'.
-    """
-    if not isinstance(release_entry, dict):
-        return None
-    for key in ("filename", "url"):
-        value = release_entry.get(key)
-        if not value:
-            continue
-        match = _VERSION_FOLDER_RE.search(value)
-        if match:
-            return match.group(1)
-    return None
-
-
 def fetch_latest_release(timeout=5):
-    """Запрашивает последний релиз с SourceForge.
+    """Запрашивает последний релиз с GitHub.
 
-    Возвращает (version, url) или None при любой ошибке (нет сети,
-    таймаут, проект недоступен, формат ответа не распознан и т.д.) —
-    ошибки сети не должны быть заметны пользователю, поэтому все они
-    гасятся молча.
+    Возвращает (tag_name, html_url) или None при любой ошибке (нет сети,
+    таймаут, лимит API, репозиторий недоступен и т.д.) — ошибки сети не
+    должны быть заметны пользователю, поэтому все они гасятся молча.
     """
     req = urllib.request.Request(
         API_URL,
         headers={
-            "Accept": "application/json",
+            "Accept": "application/vnd.github+json",
             "User-Agent": "Formatix-Update-Check",
         },
     )
@@ -111,18 +84,11 @@ def fetch_latest_release(timeout=5):
     except (urllib.error.URLError, TimeoutError, ValueError, OSError):
         return None
 
-    # Сначала пробуем релиз по умолчанию (top-level), затем — Windows-сборку
-    # из platform_releases, если верхний уровень версию не дал.
-    version = _extract_version(data)
-    if not version:
-        version = _extract_version(
-            (data.get("platform_releases") or {}).get("windows")
-        )
-    if not version:
+    tag = data.get("tag_name") or ""
+    url = data.get("html_url") or RELEASES_URL
+    if not tag:
         return None
-
-    url = f"{RELEASES_URL}{version}/"
-    return version, url
+    return tag, url
 
 
 def check_for_update(current_version, timeout=5):
